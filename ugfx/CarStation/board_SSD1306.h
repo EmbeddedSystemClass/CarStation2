@@ -9,6 +9,7 @@
 #define _GDISP_LLD_BOARD_H
 
 #include "stm32f10x.h"
+#include "task.h"
 
 //#define SSD1306_PAGE_PREFIX		0x40
 
@@ -37,6 +38,14 @@
 #define sLCD_SET_RST()					GPIO_ResetBits(sLCD_RESET_GPIO_PORT, sLCD_RESET_PIN)
 #define sLCD_CLR_RST()					GPIO_SetBits(sLCD_RESET_GPIO_PORT, sLCD_RESET_PIN)
 
+// DMA config
+DMA_InitTypeDef    DMA_InitStructure;
+
+#define SPI_MASTER_DMA               DMA1
+#define SPI_MASTER_DMA_CLK           RCC_AHBPeriph_DMA1
+#define SPI_MASTER_Tx_DMA_Channel    DMA1_Channel3
+#define SPI_MASTER_Tx_DMA_FLAG       DMA1_FLAG_TC3
+#define SPI_MASTER_DR_Base           0x4001300C
 
 static inline void init_board(GDisplay *g) {
 	GPIO_InitTypeDef GPIO_InitStructure;
@@ -97,6 +106,24 @@ static inline void init_board(GDisplay *g) {
 		SPI_InitStructure.SPI_CRCPolynomial = 7;
 		SPI_Init(sLCD_SPI, &SPI_InitStructure);
 
+		// Initialize DMA for SPI
+		RCC_AHBPeriphClockCmd(SPI_MASTER_DMA_CLK, ENABLE);
+
+		/* SPI_MASTER_Tx_DMA_Channel configuration ---------------------------------*/
+		DMA_DeInit(SPI_MASTER_Tx_DMA_Channel);
+		DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)SPI_MASTER_DR_Base;
+		DMA_InitStructure.DMA_MemoryBaseAddr = (uint32_t)0;		//0
+		DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralDST;
+		DMA_InitStructure.DMA_BufferSize = 0;					//0
+		DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
+		DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
+		DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
+		DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;
+		DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
+		DMA_InitStructure.DMA_Priority = DMA_Priority_Low;
+		DMA_InitStructure.DMA_M2M = DMA_M2M_Disable;
+		//DMA_Init(SPI_MASTER_Tx_DMA_Channel, &DMA_InitStructure);
+
 		/*!< Enable the sLCD_SPI  */
 		SPI_Cmd(sLCD_SPI, ENABLE);
 
@@ -149,10 +176,41 @@ static inline void write_data(GDisplay *g, uint8_t* data, uint16_t length) {
 
 	sLCD_CD_DATA();
 
-	for (i = 0;  i < length; i++)
+	// 写入数据为10以内时，使用pull方式（1个字节不能使用DMA）
+	// 大于等于10字节的，使用DMA方式。
+	if (length < 10)
+	{
+		for (i = 0;  i < length; i++)
+		{
+			while (SPI_I2S_GetFlagStatus(sLCD_SPI, SPI_I2S_FLAG_TXE) == RESET);
+			SPI_I2S_SendData(sLCD_SPI, data[i]);
+		}
+	}
+	else
 	{
 		while (SPI_I2S_GetFlagStatus(sLCD_SPI, SPI_I2S_FLAG_TXE) == RESET);
-		SPI_I2S_SendData(sLCD_SPI, data[i]);
+
+		// 根据数据地址，重新初始化DMA通道
+		DMA_DeInit(SPI_MASTER_Tx_DMA_Channel);
+		DMA_InitStructure.DMA_MemoryBaseAddr = (uint32_t)data;
+		DMA_InitStructure.DMA_BufferSize = length;
+		DMA_Init(SPI_MASTER_Tx_DMA_Channel, &DMA_InitStructure);
+
+		// 启动SPI的DMA功能
+		SPI_I2S_DMACmd(sLCD_SPI, SPI_I2S_DMAReq_Tx, ENABLE);
+
+		/* Enable DMA channels */
+		DMA_Cmd(SPI_MASTER_Tx_DMA_Channel, ENABLE);
+
+		// 等待DMA完成（不能异步处理，否则可能会导致command命令和数据并行发送）
+		while(!DMA_GetFlagStatus(SPI_MASTER_Tx_DMA_FLAG))
+		{
+			taskYIELD();
+		};
+
+		// 完成DMA发送后，关闭SPI的DMA和DMA通道，等下次发送再次初始化开启
+		SPI_I2S_DMACmd(sLCD_SPI, SPI_I2S_DMAReq_Tx, DISABLE);
+		DMA_Cmd(SPI_MASTER_Tx_DMA_Channel, DISABLE);
 	}
 }
 
