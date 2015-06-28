@@ -114,28 +114,28 @@ static void MainTask( void * pvParameters)
 
 	// 初始化Shell
 	//InitShell();
-	EnableBluetooth(pdTRUE);
+	//EnableBluetooth(pdTRUE);
 
 	// 初始化消息内存池
 	//InitMsgMemoryPool();
 
 	// 初始化GPS模块
-	InitGPS();
+	//InitGPS();
 
 	// 初始化电源监控部分
-	InitPower();
+	//InitPower();
 
 	// 初始化I2C总线和相关设备
-	InitI2C();
+	//InitI2C();
 
 	// 初始化GUI（内部会创建GUI线程）
 	InitGUI();
 
 	// 初始化RTC，每秒一个中断
-	InitRTC();
+	//InitRTC();
 
 	// 启动传感器测量线程
-	InitSensorsThread();
+	//InitSensorsThread();
 
 	// 进入controller主循环（不会再退出）
 	controller_entry();

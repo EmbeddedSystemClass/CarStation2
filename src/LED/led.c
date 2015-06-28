@@ -10,6 +10,9 @@
 #include <chprintf.h>
 #include <string.h>
 
+
+static BaseType_t cmd_led( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString )
+
 void cmd_led(BaseSequentialStream *chp, int argc, char *argv[])
 {
 	bool_t		bOn;
@@ -46,3 +49,12 @@ void cmd_led(BaseSequentialStream *chp, int argc, char *argv[])
 			GREEN_LED_OFF;
 	}
 }
+
+static const CLI_Command_Definition_t xThreeParameterEcho =
+{
+	"led",
+	"\r\nled debug|red|gree 0|1 \r\n Control color LED.\r\n",
+	cmd_led, /* The function to run. */
+	2
+};
+

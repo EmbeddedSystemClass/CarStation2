@@ -6,7 +6,6 @@
  */
 
 #include <stm32f10x.h>
-#include <shell.h>
 #include "car_sh.h"
 
 #include "../SDCard/SDCard.h"
@@ -16,7 +15,16 @@
 #include "../I2C/myi2c.h"
 #include "../RTC/myRTC.h"
 
+#define mainUART_COMMAND_CONSOLE_STACK_SIZE		( configMINIMAL_STACK_SIZE * 10 )
+#define mainUART_COMMAND_CONSOLE_TASK_PRIORITY  	4
+extern void vRegisterSampleCLICommands( void );
+extern void vUARTCommandConsoleStart( uint16_t usStackSize, UBaseType_t uxPriority );
+
 // 自定义命令入口
+static const CLI_Command_Definition_t* commands[] = {
+
+};
+
 static const ShellCommand commands[] = {
 	{"diskfree", cmd_diskfree},
 //	{"mkfs", cmd_mkfs},
@@ -31,34 +39,22 @@ static const ShellCommand commands[] = {
 	{NULL, NULL}
 };
 
-static const ShellConfig shell_cfg1 = {
-  (BaseSequentialStream *)&SD1,
-  commands
-};
-
-// shell thread statck size
-static WORKING_AREA(waShell, 512);
-
 
 bool_t InitShell(void)
 {
 	bool_t		bRet 	= TRUE;
-	Thread *	shelltp = NULL;
 
-	/*
-	 * Activates the serial driver 1 using the driver default configuration.
-	 */
-	sdStart(&SD1, NULL);
-
-	/*
-	 * * Shell manager initialization.
-	 */
 	shellInit();
 
+	// 注册Shell命令组
+	vRegisterSampleCLICommands();
+
 	// 创建Shell线程
-	shelltp = shellCreateStatic(&shell_cfg1, waShell, sizeof(waShell), NORMALPRIO);
+	vUARTCommandConsoleStart(mainUART_COMMAND_CONSOLE_STACK_SIZE,
+			mainUART_COMMAND_CONSOLE_TASK_PRIORITY);
 
 	// 初始化Bluetooth的控制引脚
+	EnableBluetooth(TRUE);
 
 	return bRet;
 }
@@ -68,10 +64,12 @@ void EnableBluetooth(bool_t bEnable)
 	if (bEnable)
 	{
 		// 开启蓝牙（CarStation的串口1通过蓝牙模块输出，蓝牙模块的速率默认是115200）
-		palSetPad(GPIO_BLUETOOTH_PORT, GPIO_BLUETOOTH_BIT);
+		GPIO_SetBits(USARTsh_BT_GPIO, USARTsh_BT_Pin);
 	}
 	else
 	{
-		palClearPad(GPIO_BLUETOOTH_PORT, GPIO_BLUETOOTH_BIT);
+		GPIO_ResetBits(USARTsh_BT_GPIO, USARTsh_BT_Pin);
 	}
 }
+
+

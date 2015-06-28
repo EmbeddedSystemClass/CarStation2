@@ -11,6 +11,9 @@
 #define CAR_SH_H_
 
 #include <FreeRTOS.h>
+/* FreeRTOS+CLI includes. */
+#include "FreeRTOS_CLI.h"
+#include "UARTAdapter.h"
 
 bool_t InitShell(void);
 
