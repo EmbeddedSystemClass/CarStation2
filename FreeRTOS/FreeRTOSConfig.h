@@ -142,6 +142,5 @@ standard names. */
 #define configCOMMAND_INT_MAX_OUTPUT_SIZE 1000
 
 
-
 #endif /* FREERTOS_CONFIG_H */
 

@@ -54,10 +54,6 @@ BaseType_t InitShell(void)
 
 	// 启动串口shell
 	vUARTCommandConsoleStart(mainUART_COMMAND_CONSOLE_STACK_SIZE, mainUART_COMMAND_CONSOLE_TASK_PRIORITY);
-
-	// 初始化Bluetooth的控制引脚
-
-	return bRet;
 }
 
 void EnableBluetooth(BaseType_t bEnable)
@@ -65,10 +61,12 @@ void EnableBluetooth(BaseType_t bEnable)
 	if (bEnable)
 	{
 		// 开启蓝牙（CarStation的串口1通过蓝牙模块输出，蓝牙模块的速率默认是115200）
-		palSetPad(GPIO_BLUETOOTH_PORT, GPIO_BLUETOOTH_BIT);
+		GPIO_SetBits(USARTsh_BT_GPIO, USARTsh_BT_Pin);
 	}
 	else
 	{
-		palClearPad(GPIO_BLUETOOTH_PORT, GPIO_BLUETOOTH_BIT);
+		GPIO_ResetBits(USARTsh_BT_GPIO, USARTsh_BT_Pin);
 	}
 }
+
+
