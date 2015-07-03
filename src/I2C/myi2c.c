@@ -43,9 +43,9 @@ static uint16_t		c_Humidity_outside		= (uint16_t)-1;
 
 static uint16_t		c_Light					= 0;
 
-bool_t InitI2C(void)
+BaseType_t InitI2C(void)
 {
-	bool_t	bRet = TRUE;
+	BaseType_t	bRet = TRUE;
 
 	 i2cStart(&I2CD1, &i2cfg1);
 	 i2cStart(&I2CD2, &i2cfg2);
@@ -54,9 +54,9 @@ bool_t InitI2C(void)
 }
 
 // 读取照度传感器
-bool_t ReadLightSensor(uint16_t* unLight)
+BaseType_t ReadLightSensor(uint16_t* unLight)
 {
-	bool_t		bRet 	= false;
+	BaseType_t		bRet 	= false;
 	msg_t 		status 	= RDY_OK;
 	uint8_t		data[2];
 
@@ -165,9 +165,9 @@ uint8_t SHT21Checksum(uint8_t* pData, uint8_t length)
 }
 
 // 读取温湿度数据
-bool_t ReadSHT21(I2CDriver* i2cp, uint16_t* pTemperature, uint16_t* pHumidity)
+BaseType_t ReadSHT21(I2CDriver* i2cp, uint16_t* pTemperature, uint16_t* pHumidity)
 {
-	bool_t		bRet = false;
+	BaseType_t		bRet = false;
 	msg_t 		status 	= RDY_OK;
 	uint8_t		data[3];
 	uint8_t		i;
@@ -271,7 +271,7 @@ bool_t ReadSHT21(I2CDriver* i2cp, uint16_t* pTemperature, uint16_t* pHumidity)
 // Last
 void GetTemperatureAndHumidity(void)
 {
-	bool_t		bRet;
+	BaseType_t		bRet;
 	uint16_t	unTemperature, unHumidity;
 	Msg*		msg;
 	msg_t		err;

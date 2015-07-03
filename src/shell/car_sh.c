@@ -6,7 +6,6 @@
  */
 
 #include <stm32f10x.h>
-#include <shell.h>
 #include "car_sh.h"
 
 #include "../SDCard/SDCard.h"
@@ -16,54 +15,52 @@
 #include "../I2C/myi2c.h"
 #include "../RTC/myRTC.h"
 
+#define mainUART_COMMAND_CONSOLE_STACK_SIZE		( configMINIMAL_STACK_SIZE * 10 )
+#define mainUART_COMMAND_CONSOLE_TASK_PRIORITY  	4
+extern void vUARTCommandConsoleStart( uint16_t usStackSize, UBaseType_t uxPriority );
+
+
 // 自定义命令入口
-static const ShellCommand commands[] = {
-	{"diskfree", cmd_diskfree},
-//	{"mkfs", cmd_mkfs},
-	{"sdinfo", cmd_sdinfo},
-	{"dir", cmd_dir},
-	{"power", cmd_power},
-	{"chargeenable", cmd_chargeenable},
-	{"led", cmd_led},
-	{"gpsenable", cmd_gpsenable},
-	{"light", cmd_light},
-	{"time", cmd_time},
-	{NULL, NULL}
+//static const ShellCommand commands[] = {
+//	{"diskfree", cmd_diskfree},
+////	{"mkfs", cmd_mkfs},
+//	{"sdinfo", cmd_sdinfo},
+//	{"dir", cmd_dir},
+//	{"power", cmd_power},
+//	{"chargeenable", cmd_chargeenable},
+//	{"led", cmd_led},
+//	{"gpsenable", cmd_gpsenable},
+//	{"light", cmd_light},
+//	{"time", cmd_time},
+//	{NULL, NULL}
+//};
+
+
+
+static const CLI_Command_Definition_t* commands[] = {
+	&cmd_def_led,
 };
 
-static const ShellConfig shell_cfg1 = {
-  (BaseSequentialStream *)&SD1,
-  commands
-};
 
-// shell thread statck size
-static WORKING_AREA(waShell, 512);
-
-
-bool_t InitShell(void)
+BaseType_t InitShell(void)
 {
-	bool_t		bRet 	= TRUE;
-	Thread *	shelltp = NULL;
+	int16_t 	i;
 
-	/*
-	 * Activates the serial driver 1 using the driver default configuration.
-	 */
-	sdStart(&SD1, NULL);
+	// 注册命令
+	for (i = 0; i < sizeof(commands) / sizeof(commands[0]); i++)
+	{
+		FreeRTOS_CLIRegisterCommand(commands[i]);
+	}
 
-	/*
-	 * * Shell manager initialization.
-	 */
-	shellInit();
-
-	// 创建Shell线程
-	shelltp = shellCreateStatic(&shell_cfg1, waShell, sizeof(waShell), NORMALPRIO);
+	// 启动串口shell
+	vUARTCommandConsoleStart(mainUART_COMMAND_CONSOLE_STACK_SIZE, mainUART_COMMAND_CONSOLE_TASK_PRIORITY);
 
 	// 初始化Bluetooth的控制引脚
 
 	return bRet;
 }
 
-void EnableBluetooth(bool_t bEnable)
+void EnableBluetooth(BaseType_t bEnable)
 {
 	if (bEnable)
 	{

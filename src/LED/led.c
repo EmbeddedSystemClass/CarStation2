@@ -6,13 +6,13 @@
  */
 
 #include "led.h"
-#include <hal.h>
-#include <chprintf.h>
+
 #include <string.h>
 
+BaseType_t cmd_led( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString )
 void cmd_led(BaseSequentialStream *chp, int argc, char *argv[])
 {
-	bool_t		bOn;
+	BaseType_t		bOn;
 
 	// Usage: led debug|red|green 0|1
 
@@ -46,3 +46,13 @@ void cmd_led(BaseSequentialStream *chp, int argc, char *argv[])
 			GREEN_LED_OFF;
 	}
 }
+
+const CLI_Command_Definition_t cmd_def_led =
+{
+	"led",
+	"Usage:led debug|red|gree 0|1 \r\n",
+	cmd_led, /* The function to run. */
+	2 /* The user can enter any number of commands. */
+};
+
+

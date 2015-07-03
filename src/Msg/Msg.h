@@ -39,15 +39,17 @@ typedef union
 	{
 		int16_t		CarBattery;
 		int16_t		LionBattery;
-		bool_t		IsPoweron;
-		bool_t		IsCarStart;
-		bool_t		IsCharging;
-		bool_t		IsFull;
+
+		int16_t		IsPoweron : 1;
+		int16_t		IsCarStart : 1;
+		int16_t		IsCharging : 1;
+		int16_t		IsFull : 1;
+
 	}	PowerVoltage;
 
 	struct Msg_DoorOpen
 	{
-		bool_t		IsOpen;
+		int16_t		IsOpen : 1;
 	}	DoorOpen;
 
 	// 温度和湿度
@@ -93,7 +95,7 @@ typedef union
 	// 液晶屏控制消息
 	struct Msg_DisplayOnOff
 	{
-		bool_t		IsOn;
+		int16_t		IsOn : 1;
 	} DisplayOnOff;
 
 	struct Msg_DisplayContrast
@@ -109,26 +111,22 @@ typedef struct
 	Msg_Param	Param;
 } Msg;
 
-extern MemoryPool		msgMP;
+void InitMsgQueue(void);
 
-void InitMsgMemoryPool(void);
+#define MSG_NEW			(Msg*)pvPortMalloc(sizeof(Msg))
 
-#define MSG_NEW			(Msg*)chPoolAlloc(&msgMP)
-#define MSG_NEW_I		(Msg*)chPoolAllocI(&msgMP)
+#define MSG_FREE(p)		pvPortMalloc((void*)p)
 
-#define MSG_FREE(p)		chPoolFree(&msgMP, (void*)p)
-#define MSG_FREE_I(p)	chPoolFreeI(&msgMP, (void*)p)
+#define MSG_SEND(p)		xQueueSendToBack(&main_queue, (void*)p, portMAX_DELAY)
+#define MSG_SEND_I(p)	xQueueSendToBackFromISR(&main_queue, (void*)p, pdFALSE)
 
-#define MSG_SEND(p)		chMBPost(&main_mb, (msg_t)p, TIME_INFINITE)
-#define MSG_SEND_I(p)	chMBPostI(&main_mb, (msg_t)p)
+#define GUI_MSG_SEND(p)		xQueueSendToBack(&gui_queue, (void*)p, portMAX_DELAY)
+#define GUI_MSG_SEND_I(p)	xQueueSendToBackFromISR(&gui_queue, (void*)p, pdFALSE)
 
-#define GUI_MSG_SEND(p)		chMBPost(&gui_mb, (msg_t)p, TIME_INFINITE)
-#define GUI_MSG_SEND_I(p)	chMBPostI(&gui_mb, (msg_t)p)
-
-// 每个mailbox外部定义
-extern Mailbox		gui_mb;
-extern Mailbox		main_mb;
-extern Mailbox		log_mb;
-extern Mailbox		file_mb;
+// 每个queue外部定义
+extern QueueHandle_t		gui_queue;
+extern QueueHandle_t		main_queue;
+extern QueueHandle_t		log_queue;
+extern QueueHandle_t		file_queue;
 
 #endif /* MSG_H_ */

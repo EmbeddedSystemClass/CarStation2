@@ -8,9 +8,9 @@
 #ifndef SDCARD_H_
 #define SDCARD_H_
 
-#include "ch.h"
+#include <FreeRTOS.h>
 
-bool_t InitSDCard(void);
+BaseType_t InitSDCard(void);
 
 void cmd_diskfree(BaseSequentialStream *chp, int argc, char *argv[]);
 // void cmd_mkfs(BaseSequentialStream *chp, int argc, char *argv[]);

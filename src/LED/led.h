@@ -10,6 +10,7 @@
 #define LED_H_
 
 #include <FreeRTOS.h>
+#include <FreeRTOS_CLI.h>
 
 #define DEBUG_LED_OFF		palClearPad(GPIO_LED_INTERNAL_PORT, GPIO_LED_INTERNAL_BIT)
 #define DEBUG_LED_ON		palSetPad(GPIO_LED_INTERNAL_PORT, GPIO_LED_INTERNAL_BIT)
@@ -23,6 +24,7 @@
 #define GREEN_LED_ON		palSetPad(GPIO_LED_GREEN_PORT, GPIO_LED_GREEN_BIT)
 #define GREEN_LED_TOGGLE	palTogglePad(GPIO_LED_GREEN_PORT, GPIO_LED_GREEN_BIT)
 
+extern const CLI_Command_Definition_t cmd_def_led;
 void cmd_led(BaseSequentialStream *chp, int argc, char *argv[]);
 
 #endif /* LED_H_ */

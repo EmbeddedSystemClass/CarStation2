@@ -12,8 +12,8 @@
 
 #include <FreeRTOS.h>
 
-bool_t InitShell(void);
+BaseType_t InitShell(void);
 
-void EnableBluetooth(bool_t bEnable);
+void EnableBluetooth(BaseType_t bEnable);
 
 #endif /* CAR_SH_H_ */

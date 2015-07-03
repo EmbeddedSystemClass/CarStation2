@@ -13,9 +13,9 @@
 
 FATFS SDC_FS;
 
-bool_t InitSDCard(void)
+BaseType_t InitSDCard(void)
 {
-	bool_t		bRet;
+	BaseType_t		bRet;
 	FRESULT		err;
 
 	bRet = FALSE;

@@ -10,7 +10,7 @@
 
 #include <FreeRTOS.h>
 
-bool_t	InitRTC(void);
+BaseType_t	InitRTC(void);
 
 void cmd_time(BaseSequentialStream *chp, int argc, char *argv[]);
 

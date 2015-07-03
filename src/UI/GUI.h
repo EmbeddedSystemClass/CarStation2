@@ -97,7 +97,7 @@ typedef union
 } guiMem;
 
 
-bool_t InitGUI(void);
+BaseType_t InitGUI(void);
 
 void LoadFirstPage(enumPage name);
 void LoadPage(const struPage* page);

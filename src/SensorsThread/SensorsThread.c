@@ -15,9 +15,9 @@
 static WORKING_AREA(sensorsThread, 256);
 static msg_t sensors_Thread(void *arg);
 
-bool_t InitSensorsThread(void)
+BaseType_t InitSensorsThread(void)
 {
-	bool_t		bRet;
+	BaseType_t		bRet;
 
 	bRet = FALSE;
 

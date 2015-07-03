@@ -58,7 +58,7 @@ static msg_t gui_Thread(void *arg)
 }
 
 
-bool_t InitGUI(void)
+BaseType_t InitGUI(void)
 {
 	//创建GUI线程，由GUI线程进行初始化和后续的工作
 	chThdCreateStatic(guiThread, sizeof(guiThread), NORMALPRIO, gui_Thread, NULL);

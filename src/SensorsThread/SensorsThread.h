@@ -10,6 +10,6 @@
 
 #include <FreeRTOS.h>
 
-bool_t InitSensorsThread(void);
+BaseType_t InitSensorsThread(void);
 
 #endif /* SENSORSTHREAD_H_ */

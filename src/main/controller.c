@@ -12,19 +12,13 @@
 
 #include <time.h>
 
-// Mailbox定义
-#define MAIN_MB_SIZE			20
-static void*	main_mb_buffer[MAIN_MB_SIZE];
-
-MAILBOX_DECL(main_mb, main_mb_buffer, MAIN_MB_SIZE);
-
 // 所有的系统用的变量都存放在这里
 // RTC时间
 static uint32_t		s_RTC = 0;
 static uint32_t		s_LastMinute = 0;
 
 // 温度（放大100倍）、湿度（放大100倍）、气压
-static	int16_t		s_Temperature_in	= INVALID_TEMPERATURE;
+static int16_t		s_Temperature_in	= INVALID_TEMPERATURE;
 static int16_t		s_Humidity_in		= INVALID_HUMIDITY;
 static int16_t		s_Temperature_out	= INVALID_TEMPERATURE;
 static int16_t		s_Humidity_out		= INVALID_HUMIDITY;
@@ -35,15 +29,29 @@ static int16_t		s_Humidity_out		= INVALID_HUMIDITY;
 static uint16_t		s_Light				= 0;
 
 // 电源状态
-static int16_t		s_Battery			= INVALID_VOLTAGE;
-static int16_t		s_CarBat			= INVALID_VOLTAGE;
-static bool_t		s_IsFull			= false;
-static bool_t		s_IsCharging		= false;
-static bool_t		s_IsPowerOn			= false;
-static bool_t		s_IsCarStart		= false;
+struct	Msg_Power
+{
+	int16_t		CarBattery;
+	int16_t		LionBattery;
+
+	int16_t		IsPoweron : 1;
+	int16_t		IsCarStart : 1;
+	int16_t		IsCharging : 1;
+	int16_t		IsFull : 1;
+
+} PowerVoltage;
+
+static 	PowerVoltage	s_Power = {INVALID_VOLTAGE, INVALID_VOLTAGE, 0, 0, 0, 0};
+
+//static int16_t		s_Battery			= INVALID_VOLTAGE;
+//static int16_t		s_CarBat			= INVALID_VOLTAGE;
+//static BaseType_t		s_IsFull			= false;
+//static BaseType_t		s_IsCharging		= false;
+//static BaseType_t		s_IsPowerOn			= false;
+//static BaseType_t		s_IsCarStart		= false;
 
 // 门状态
-static bool_t		s_IsDoorOpen		= false;
+static int8_t		s_IsDoorOpen		= pdFALSE;
 
 // 指南针、陀螺仪、加速计数据
 
@@ -61,7 +69,7 @@ void MsgRTCSecond(Msg* msg)
 		// 分配UI消息，发送UI消息
 		struct tm		now;
 		Msg*			uimsg;
-		msg_t			err;
+		BaseType_t		err;
 
 		localtime_r((time_t*)&(s_RTC), &now);
 
@@ -77,7 +85,7 @@ void MsgRTCSecond(Msg* msg)
 
 			err = GUI_MSG_SEND(uimsg);
 
-			if (err == RDY_OK)
+			if (err == pdPASS)
 			{
 				s_LastMinute = minute;
 			}
@@ -122,8 +130,8 @@ void MsgSHT21(Msg* msg)
 	// 判断是否有变化
 	if ((msg->Param.SHT21Data.Temperature != *c_pTemperature) || (msg->Param.SHT21Data.Humidity != *c_pHumidity))
 	{
-		msg_t	err;
-		Msg*	uimsg;
+		BaseType_t	err;
+		Msg*		uimsg;
 
 		uimsg = MSG_NEW;
 		if (uimsg)
@@ -133,7 +141,7 @@ void MsgSHT21(Msg* msg)
 			uimsg->Param.TandH.Humidity 	= msg->Param.SHT21Data.Humidity;
 
 			err = GUI_MSG_SEND(uimsg);
-			if (err == RDY_OK)
+			if (err == pdPASS)
 			{
 				*c_pTemperature = msg->Param.SHT21Data.Temperature;
 				*c_pHumidity = msg->Param.SHT21Data.Humidity;
@@ -149,21 +157,21 @@ void MsgSHT21(Msg* msg)
 
 void MsgPower(Msg* msg)
 {
-	msg_t		err;
+	BaseType_t	err;
 	Msg*		uimsg;
 
-	if (msg->Param.PowerVoltage.IsPoweron != s_IsPowerOn)
+	if (msg->Param.PowerVoltage.IsPoweron != s_Power.IsPoweron)
 	{
-		s_IsPowerOn = msg->Param.PowerVoltage.IsPoweron;
+		s_Power.IsPowerOn = msg->Param.PowerVoltage.IsPoweron;
 
 		uimsg = MSG_NEW;
 		if (uimsg)
 		{
 			uimsg->Id = MSG_UI_ONOFF;
-			uimsg->Param.DisplayOnOff.IsOn = s_IsPowerOn;
+			uimsg->Param.DisplayOnOff.IsOn = s_Power.IsPowerOn;
 
 			err = GUI_MSG_SEND(uimsg);
-			if (err != RDY_OK)
+			if (err != pdPASS)
 			{
 				MSG_FREE(uimsg);
 			}
@@ -183,7 +191,7 @@ void MsgLight(Msg* msg)
 
 	if (s_Light != light)
 	{
-		msg_t		err;
+		BaseType_t	err;
 		Msg*		uimsg;
 
 		uimsg = MSG_NEW;
@@ -193,7 +201,7 @@ void MsgLight(Msg* msg)
 			uimsg->Param.Light.Light = light;
 
 			err = GUI_MSG_SEND(uimsg);
-			if (err == RDY_OK)
+			if (err == pdPASS)
 			{
 				s_Light = light;
 			}
@@ -219,14 +227,15 @@ static struEntry	Entries[] =
 // 主处理循环，使用主线程（不需要独立开启一个线程）
 void controller_entry(void)
 {
-	msg_t			ret, msg;
+	Msg*			msg;
 	unsigned int	i;
+	BaseType_t		ret;
 
 	// 循环读取Mailbox，然后处理
-	while(TRUE) {
-		ret = chMBFetch(&main_mb, &msg, MS2ST(100));
+	while(1) {
+		ret = xQueueReceive(main_queue, &msg, pdMS_TO_TICKS(100));
 
-		if (ret == RDY_OK)
+		if (ret == pdPASS)
 		{
 			// 对消息进行处理
 			for (i = 0; i < (sizeof(Entries) / sizeof(Entries[0])); i++)

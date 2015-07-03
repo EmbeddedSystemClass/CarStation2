@@ -21,10 +21,10 @@ static int16_t		c_Battery		= INVALID_VOLTAGE;	// 1/2取样
 static int16_t		c_CarBattery	= INVALID_VOLTAGE;	// 1/5取样
 //static int16_t		c_CarAcc		= INVALID_VOLTAGE;	// 1/5取样
 
-static bool_t		c_PowerOn		= false;
-static bool_t		c_CarRunning	= false;
-static bool_t		s_PowerIsChange	= false;
-static bool_t		c_IsFull		= false;
+static BaseType_t		c_PowerOn		= false;
+static BaseType_t		c_CarRunning	= false;
+static BaseType_t		s_PowerIsChange	= false;
+static BaseType_t		c_IsFull		= false;
 
 #define ADC_REF_VOLTAGE			3300		// ADC参考电压
 #define POWER_ON_VAL			5000		// 大于5v，就认为开启电源（有可能启动时，电池电压会跌倒很低）
@@ -34,7 +34,7 @@ static bool_t		c_IsFull		= false;
 
 void PowerCheck(int16_t bat, int16_t carBat, int16_t	carAcc);
 
-bool_t InitPower(void)
+BaseType_t InitPower(void)
 {
 	/*
 	 *  Activates the ADC1 driver and the temperature sensor.
@@ -45,7 +45,7 @@ bool_t InitPower(void)
 }
 
 // 开启充电（使用12 -> 5v的DCDC变换器的控制端）
-void EnableCharge(bool_t bEnable)
+void EnableCharge(BaseType_t bEnable)
 {
 	if (bEnable)
 	{
@@ -163,9 +163,9 @@ void GetPowerStatus(void)
 
 void PowerCheck(int16_t bat, int16_t carBat, int16_t	carAcc)
 {
-	bool_t		isFull;
-	bool_t		powerOn;
-	bool_t		carRunning;
+	BaseType_t		isFull;
+	BaseType_t		powerOn;
+	BaseType_t		carRunning;
 
 	// 检查是否应该启动充电，是否汽车开启电源，是否汽车启动了
 	powerOn 	= (carAcc >= POWER_ON_VAL);

@@ -58,11 +58,11 @@ static char	cDate[6];
 
 static WORKING_AREA(gpsThread, 128);
 static msg_t gps_Thread(void *arg);
-static bool_t getGPSCommand(void);
+static BaseType_t getGPSCommand(void);
 
-bool_t InitGPS(void)
+BaseType_t InitGPS(void)
 {
-	bool_t	bRet;
+	BaseType_t	bRet;
 
 	bRet = TRUE;
 
@@ -72,7 +72,7 @@ bool_t InitGPS(void)
 
 	return bRet;
 }
-void EnableGPS(bool_t bEnable)
+void EnableGPS(BaseType_t bEnable)
 {
 	if (bEnable)
 	{
@@ -125,7 +125,7 @@ static msg_t gps_Thread(void *arg) {
   return 0;
 }
 
-bool_t GPSCommandChecksum(int nLength)
+BaseType_t GPSCommandChecksum(int nLength)
 {
 	int	c		= 0;
 	char*			p;
@@ -161,7 +161,7 @@ bool_t GPSCommandChecksum(int nLength)
 }
 
 // 根据命令字，来处理GPS命令
-bool_t processGPSCommand(int nLength)
+BaseType_t processGPSCommand(int nLength)
 {
 	// 做校验
 	if (!GPSCommandChecksum(nLength))
@@ -198,9 +198,9 @@ int SearchEOF(void)
 	return 0;
 }
 // 从缓冲区中分离命令
-static bool_t getGPSCommand(void)
+static BaseType_t getGPSCommand(void)
 {
-	bool_t		bHaveCommand = false;
+	BaseType_t		bHaveCommand = false;
 
 	while (true)
 	{

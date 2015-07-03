@@ -50,7 +50,7 @@ static void rtc_cb(RTCDriver *rtcp, rtcevent_t event)
 	}
 }
 
-bool_t InitRTC(void)
+BaseType_t InitRTC(void)
 {
 	// Set RTC callback
 	rtcSetCallback(&RTCD1, rtc_cb);

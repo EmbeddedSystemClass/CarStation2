@@ -8,16 +8,14 @@
 
 #include "Msg.h"
 
-// 定义Msg的Memory Pool数据
-MEMORYPOOL_DECL(msgMP, sizeof(Msg), NULL);
-static Msg		MsgArray[20];
+// 定义队列大小
+QueueHandle_t		main_queue;
+const unsigned portBASE_TYPE uxQueueSize = 20;
 
-// 初始化消息用的内存池
-void InitMsgMemoryPool(void)
+// 初始化消息队列
+void InitMsgQueue(void)
 {
-	// chPoolInit(&msgMP, sizeof(Msg), NULL);
-
-	chPoolLoadArray(&msgMP, MsgArray, sizeof(MsgArray)/sizeof(MsgArray[0]));
+	main_queue = xQueueCreate(uxQueueSize, sizeof(Msg*));
 }
 
 

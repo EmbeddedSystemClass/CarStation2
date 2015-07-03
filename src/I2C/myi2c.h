@@ -10,7 +10,7 @@
 
 #include <FreeRTOS.h>
 
-bool_t InitI2C(void);
+BaseType_t InitI2C(void);
 
 // 读取车内外温度和湿度，如果有变化就发送到主处理模块
 void GetTemperatureAndHumidity(void);

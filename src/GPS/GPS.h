@@ -8,10 +8,10 @@
 #ifndef GPS_H_
 #define GPS_H_
 
-#include "ch.h"
+#include <FreeRTOS.h>
 
-bool_t InitGPS(void);
-void EnableGPS(bool_t bEnable);
+BaseType_t InitGPS(void);
+void EnableGPS(BaseType_t bEnable);
 
 // shell commands
 void cmd_gpsenable(BaseSequentialStream *chp, int argc, char *argv[]);
