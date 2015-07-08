@@ -44,7 +44,7 @@ static const CLI_Command_Definition_t* commands[] = {
 
 BaseType_t InitShell(void)
 {
-	int16_t 	i;
+	uint16_t 	i;
 
 	// 注册命令
 	for (i = 0; i < sizeof(commands) / sizeof(commands[0]); i++)
@@ -54,6 +54,8 @@ BaseType_t InitShell(void)
 
 	// 启动串口shell
 	vUARTCommandConsoleStart(mainUART_COMMAND_CONSOLE_STACK_SIZE, mainUART_COMMAND_CONSOLE_TASK_PRIORITY);
+
+	return pdTRUE;
 }
 
 void EnableBluetooth(BaseType_t bEnable)

@@ -262,11 +262,8 @@ signed portBASE_TYPE xReturn;
 	if( xQueueSend( xCharsForTx, &cOutChar, xBlockTime ) == pdPASS )
 	{
 		xReturn = pdPASS;
-<<<<<<< HEAD
+
 		USART_ITConfig( USARTsh, USART_IT_TXE, ENABLE );
-=======
-		USART_ITConfig( USART1, USART_IT_TXE, ENABLE );
->>>>>>> origin/master
 	}
 	else
 	{
@@ -313,11 +310,4 @@ char cChar;
 	portEND_SWITCHING_ISR( xHigherPriorityTaskWoken );
 }
 
-
-<<<<<<< HEAD
-
-
-
-=======
->>>>>>> origin/master
 	

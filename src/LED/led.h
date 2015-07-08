@@ -10,21 +10,33 @@
 #define LED_H_
 
 #include <FreeRTOS.h>
-#include <FreeRTOS_CLI.h>
+#include "stm32f10x.h"
+#include "..\shell\FreeRTOS_CLI.h"
 
-#define DEBUG_LED_OFF		palClearPad(GPIO_LED_INTERNAL_PORT, GPIO_LED_INTERNAL_BIT)
-#define DEBUG_LED_ON		palSetPad(GPIO_LED_INTERNAL_PORT, GPIO_LED_INTERNAL_BIT)
-#define DEBUG_LED_TOGGLE	palTogglePad(GPIO_LED_INTERNAL_PORT, GPIO_LED_INTERNAL_BIT)
+#define LED_INTERNAL_GPIO           GPIOC
+#define LED_INTERNAL_GPIO_CLK       RCC_APB2Periph_GPIOC
+#define LED_INTERNAL_Pin            GPIO_Pin_5
 
-#define RED_LED_OFF			palClearPad(GPIO_LED_RED_PORT, GPIO_LED_RED_BIT)
-#define RED_LED_ON			palSetPad(GPIO_LED_RED_PORT, GPIO_LED_RED_BIT)
-#define RED_LED_TOGGLE		palTogglePad(GPIO_LED_RED_PORT, GPIO_LED_RED_BIT)
+#define LED_RED_GPIO           		GPIOC
+#define LED_RED_GPIO_CLK       		RCC_APB2Periph_GPIOC
+#define LED_RED_Pin           		GPIO_Pin_6
 
-#define GREEN_LED_OFF		palClearPad(GPIO_LED_GREEN_PORT, GPIO_LED_GREEN_BIT)
-#define GREEN_LED_ON		palSetPad(GPIO_LED_GREEN_PORT, GPIO_LED_GREEN_BIT)
-#define GREEN_LED_TOGGLE	palTogglePad(GPIO_LED_GREEN_PORT, GPIO_LED_GREEN_BIT)
+#define LED_GREEN_GPIO           	GPIOC
+#define LED_GREEN_GPIO_CLK       	RCC_APB2Periph_GPIOC
+#define LED_GREEN_Pin            	GPIO_Pin_7
+
+#define DEBUG_LED_OFF		GPIO_ResetBits(LED_INTERNAL_GPIO, LED_INTERNAL_Pin)
+#define DEBUG_LED_ON		GPIO_SetBits(LED_INTERNAL_GPIO, LED_INTERNAL_Pin)
+//#define DEBUG_LED_TOGGLE	palTogglePad(GPIO_LED_INTERNAL_PORT, GPIO_LED_INTERNAL_BIT)
+
+#define RED_LED_OFF			GPIO_ResetBits(LED_RED_GPIO, LED_RED_Pin)
+#define RED_LED_ON			GPIO_SetBits(LED_RED_GPIO, LED_RED_Pin)
+//#define RED_LED_TOGGLE		palTogglePad(GPIO_LED_RED_PORT, GPIO_LED_RED_BIT)
+
+#define GREEN_LED_OFF		palClearPad(LED_GREEN_GPIO, LED_GREEN_Pin)
+#define GREEN_LED_ON		GPIO_SetBits(LED_GREEN_GPIO, LED_GREEN_Pin)
+//#define GREEN_LED_TOGGLE	palTogglePad(GPIO_LED_GREEN_PORT, GPIO_LED_GREEN_BIT)
 
 extern const CLI_Command_Definition_t cmd_def_led;
-void cmd_led(BaseSequentialStream *chp, int argc, char *argv[]);
 
 #endif /* LED_H_ */

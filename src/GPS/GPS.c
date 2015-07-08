@@ -64,7 +64,7 @@ BaseType_t InitGPS(void)
 {
 	BaseType_t	bRet;
 
-	bRet = TRUE;
+	bRet = pdTRUE;
 
 	// 启动GPS处理线程
 	chThdCreateStatic(gpsThread, sizeof(gpsThread), NORMALPRIO, gps_Thread, NULL);
@@ -103,7 +103,7 @@ static msg_t gps_Thread(void *arg) {
   gpsBufferPointer = gpsBuffer;
 
 
-  while (TRUE) {
+  while (pdTRUE) {
 	  // 判断是否开启或关闭GPS（只在车上电源处于ACC，即供电状态，才启动）
 	  // TODO:
 
@@ -136,7 +136,7 @@ BaseType_t GPSCommandChecksum(int nLength)
 
 	if (nLength <= 0)
 	{
-		return false;
+		return pdFALSE;
 	}
 
 	p = gpsBuffer + 1;	// 跳过$
@@ -152,11 +152,11 @@ BaseType_t GPSCommandChecksum(int nLength)
 
 	if ((Checksum[0] == *p++) && (Checksum[1] == *p))
 	{
-		return true;
+		return pdTRUE;
 	}
 	else
 	{
-		return false;
+		return pdFALSE;
 	}
 }
 
@@ -166,13 +166,13 @@ BaseType_t processGPSCommand(int nLength)
 	// 做校验
 	if (!GPSCommandChecksum(nLength))
 	{
-		return false;
+		return pdFALSE;
 	}
 
 	// 判断$GP后的3个字符串
 	// switch
 
-	return false;
+	return pdFALSE;
 }
 
 // 清除缓冲区前面无用或已经使用的数据
@@ -200,9 +200,9 @@ int SearchEOF(void)
 // 从缓冲区中分离命令
 static BaseType_t getGPSCommand(void)
 {
-	BaseType_t		bHaveCommand = false;
+	BaseType_t		bHaveCommand = pdFALSE;
 
-	while (true)
+	while (pdFALSE)
 	{
 		if (gpsBufferPointer - gpsBuffer < 11)
 		{
@@ -227,7 +227,7 @@ static BaseType_t getGPSCommand(void)
 				// 处理命令
 				processGPSCommand(nCommandLength);
 
-				bHaveCommand = true;
+				bHaveCommand = pdTRUE;
 
 				// 可能还有另一个命令，需要继续向下搜索
 				MoveData(gpsBuffer + nCommandLength);
@@ -260,31 +260,51 @@ static BaseType_t getGPSCommand(void)
 	return bHaveCommand;
 }
 
-void cmd_gpsenable(BaseSequentialStream *chp, int argc, char *argv[])
+static BaseType_t cmd_gpsenable( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString )
 {
 	// 开启或关闭GPS模块
-	if (argc == 1)
+	BaseType_t		bOn;
+	const char *	pcParameter;
+	BaseType_t 		xParameterStringLength;
+
+	pcParameter = FreeRTOS_CLIGetParameter(pcCommandString, 2, &xParameterStringLength);
+	configASSERT( pcParameter );
+	bOn = (pcParameter == '1') ? pdTRUE : pdFALSE;
+
+	if (pcParameter[0] == '1')
 	{
-		// 有一个参数
-		if (*argv[0] == '1')
-		{
-			EnableGPS(true);
-			chprintf(chp, "Enable GPS.\r\n");
-			return;
-		}
-		else if (*argv[0] == '0')
-		{
-			EnableGPS(false);
-			chprintf(chp, "Disable GPS.\r\n");
-			return;
-		}
+		EnableGPS(pdTRUE);
+		sprintf(pcWriteBuffer, "Enable GPS.\r\n");
+	}
+	else
+	{
+		EnableGPS(pdFALSE);
+		sprintf(pcWriteBuffer, "Disable GPS.\r\n");
 	}
 
-	// usage
-	chprintf(chp, "gpsenable 1|0\r\n");
+	return pdFALSE;
 }
 
-void cmd_gpsinfo(BaseSequentialStream *chp, int argc, char *argv[])
+const CLI_Command_Definition_t cmd_def_gpsenable =
+{
+	"gpsenable",
+	"\r\ngpsenable 0|1 \r\n Control GPS enable/disable.\r\n",
+	cmd_gpsenable,
+	1
+};
+
+
+static BaseType_t cmd_gpsinfo( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString )
 {
 	// 输出当前GPS的信息
+	return pdFALSE;
 }
+
+const CLI_Command_Definition_t cmd_def_gpsinfo =
+{
+	"gpsinfo",
+	"\r\ngpsinfo\r\n Get GPS information.\r\n",
+	cmd_gpsinfo,
+	0
+};
+

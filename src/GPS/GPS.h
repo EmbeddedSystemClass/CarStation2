@@ -13,8 +13,7 @@
 BaseType_t InitGPS(void);
 void EnableGPS(BaseType_t bEnable);
 
-// shell commands
-void cmd_gpsenable(BaseSequentialStream *chp, int argc, char *argv[]);
-void cmd_gpsinfo(BaseSequentialStream *chp, int argc, char *argv[]);
+extern const CLI_Command_Definition_t cmd_def_gpsenable;
+extern const CLI_Command_Definition_t cmd_def_gpsinfo;
 
 #endif /* GPS_H_ */
