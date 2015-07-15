@@ -8,7 +8,7 @@
 #include <stm32f10x.h>
 #include "car_sh.h"
 
-#include "../SDCard/SDCard.h"
+//#include "../SDCard/SDCard.h"
 #include "../power/power.h"
 #include "../LED/led.h"
 #include "../GPS/GPs.h"

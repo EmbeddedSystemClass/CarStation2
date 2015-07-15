@@ -6,8 +6,7 @@
  */
 
 #include "power.h"
-#include <hal.h>
-#include <chprintf.h>
+
 #include "Msg/Msg.h"
 #include "const.h"
 
@@ -36,6 +35,8 @@ void PowerCheck(int16_t bat, int16_t carBat, int16_t	carAcc);
 
 BaseType_t InitPower(void)
 {
+	// 初始化各个控制引脚
+
 	/*
 	 *  Activates the ADC1 driver and the temperature sensor.
 	 */
@@ -221,47 +222,49 @@ void PowerCheck(int16_t bat, int16_t carBat, int16_t	carAcc)
 	}
 }
 
-void cmd_power(BaseSequentialStream *chp, int argc, char *argv[])
+static BaseType_t cmd_power( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString )
+
 {
-	(void)argc;
-	(void)argv;
+	(void)pcCommandString;
+	(void)xWriteBufferLen;
 
 	// 获取所有的电压值  （同步调用方式）
 	adcConvert(&ADCD1, &adcgrpcfg1, voltages, ADC_GRP1_BUF_DEPTH);
 
 	// 输出电压值
-	chprintf(chp, "Lion Battery: %dmv\r\n", c_Battery);
-	chprintf(chp, "Car  Battery: %dmv\r\n", c_CarBattery);
+	sprintf(pcWriteBuffer, "Car  Battery: %dmv\r\n", c_CarBattery);
 
-	chprintf(chp, "Car %s, %s\r\n", c_PowerOn ? "on" : "off", c_CarRunning ? "running" : "stop");
-
-	// 当前充电允许状态
-	chprintf(chp, "Enable charge:%s\r\n", palReadPad(GPIO_DCDC_ENABLE_PORT, GPIO_DCDC_ENABLE_BIT) ? "true" : "false");
-
-	// 当前锂电池充电模块的充满指示状态
-	chprintf(chp, "Is Full:%s\r\n", c_IsFull ? "true" : "false");
+	sprintf(pcWriteBuffer, "Car %s, %s\r\n", c_PowerOn ? "on" : "off", c_CarRunning ? "running" : "stop");
 }
 
-void cmd_chargeenable(BaseSequentialStream *chp, int argc, char *argv[])
+//void cmd_chargeenable(BaseSequentialStream *chp, int argc, char *argv[])
+//{
+//	// 开启或关闭充电
+//	if (argc == 1)
+//	{
+//		// 有一个参数
+//		if (*argv[0] == '1')
+//		{
+//			EnableCharge(true);
+//			chprintf(chp, "Enable charge.\r\n");
+//			return;
+//		}
+//		else if (*argv[0] == '0')
+//		{
+//			EnableCharge(false);
+//			chprintf(chp, "Disable charge.\r\n");
+//			return;
+//		}
+//	}
+//
+//	// usage
+//	chprintf(chp, "chargeenable 1|0\r\n");
+//}
+
+const CLI_Command_Definition_t cmd_def_power =
 {
-	// 开启或关闭充电
-	if (argc == 1)
-	{
-		// 有一个参数
-		if (*argv[0] == '1')
-		{
-			EnableCharge(true);
-			chprintf(chp, "Enable charge.\r\n");
-			return;
-		}
-		else if (*argv[0] == '0')
-		{
-			EnableCharge(false);
-			chprintf(chp, "Disable charge.\r\n");
-			return;
-		}
-	}
-
-	// usage
-	chprintf(chp, "chargeenable 1|0\r\n");
-}
+	"power",
+	"\r\npower \r\n Get battery status.\r\n",
+	cmd_power, /* The function to run. */
+	2
+};

@@ -18,7 +18,6 @@ BaseType_t InitLED( void )
 }
 
 static BaseType_t cmd_led( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString )
-
 {
 	BaseType_t		bOn;
 	const char *	pcParameter;
