@@ -17,7 +17,7 @@
 #include "SDCard/SDCard.h"
 #include "GPS/GPS.h"
 #include "shell/car_sh.h"
-#include "I2C/myi2c.h"
+#include "I2C/i2cdevices.h"
 #include "power/power.h"
 #include "UI/GUI.h"
 #include "main/controller.h"

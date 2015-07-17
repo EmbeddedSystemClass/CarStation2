@@ -5,31 +5,19 @@
  *      Author: daniel
  */
 
-#include "myi2c.h"
-#include <hal.h>
-#include <chprintf.h>
+#include "i2cdevices.h"
 #include "Msg/Msg.h"
 
-/* I2C1 */
-static const I2CConfig i2cfg1 = {
-    OPMODE_I2C,
-    400000,
-    FAST_DUTY_CYCLE_2,
-};
-
-/* I2C1 */
-static const I2CConfig i2cfg2 = {
-    OPMODE_I2C,
-    400000,
-    FAST_DUTY_CYCLE_2,
-};
-
-// I2C设备地址
+// I2C设备
+#define SHT21_OUT_I2C		I2C1
+#define SHT21_IN_I2C		I2C2
 #define SHT21_I2C_ADDR		0x40	// 在两个I2C都有
 
+#define BH1750_I2C			I2C1
 #define BH1750_I2C_ADDR		0x23	// I2C1
 
 // GY80在I2C2上
+#define GY80_I2C			I2C1
 #define BMP085_I2C_ADDR		0x77
 #define ADXL345_I2C_ADDR	0x53
 #define HMC5883L_I2C_ADDR	0x1E
@@ -43,297 +31,44 @@ static uint16_t		c_Humidity_outside		= (uint16_t)-1;
 
 static uint16_t		c_Light					= 0;
 
-BaseType_t InitI2C(void)
-{
-	BaseType_t	bRet = TRUE;
-
-	 i2cStart(&I2CD1, &i2cfg1);
-	 i2cStart(&I2CD2, &i2cfg2);
-
-	return bRet;
-}
-
-void InitI2C()
-{
-	GPIO_InitTypeDef GPIO_InitStructure;
-	I2C_InitTypeDef I2C_InitStructure;
-
-	// 初始化管脚
-	/*!< sEE_I2C_SCL_GPIO_CLK and sEE_I2C_SDA_GPIO_CLK Periph clock enable */
-	RCC_APB2PeriphClockCmd(sEE_I2C_SCL_GPIO_CLK | sEE_I2C_SDA_GPIO_CLK, ENABLE);
-
-	/*!< GPIO configuration */
-	/*!< Configure sEE_I2C pins: SCL */
-	GPIO_InitStructure.GPIO_Pin = sEE_I2C_SCL_PIN;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_OD;
-	GPIO_Init(sEE_I2C_SCL_GPIO_PORT, &GPIO_InitStructure);
-
-	/*!< Configure sEE_I2C pins: SDA */
-	GPIO_InitStructure.GPIO_Pin = sEE_I2C_SDA_PIN;
-	GPIO_Init(sEE_I2C_SDA_GPIO_PORT, &GPIO_InitStructure);
-
-	// 初始化I2C
-	/*!< sEE_I2C Periph clock enable */
-	RCC_APB1PeriphClockCmd(sEE_I2C_CLK, ENABLE);
-
-	/*!< I2C configuration */
-	/* sEE_I2C configuration */
-	I2C_InitStructure.I2C_Mode = I2C_Mode_I2C;
-	I2C_InitStructure.I2C_DutyCycle = I2C_DutyCycle_2;
-	I2C_InitStructure.I2C_OwnAddress1 = I2C_SLAVE_ADDRESS7;
-	I2C_InitStructure.I2C_Ack = I2C_Ack_Enable;
-	I2C_InitStructure.I2C_AcknowledgedAddress = I2C_AcknowledgedAddress_7bit;
-	I2C_InitStructure.I2C_ClockSpeed = I2C_SPEED;
-
-	/* sEE_I2C Peripheral Enable */
-	I2C_Cmd(sEE_I2C, ENABLE);
-	/* Apply sEE_I2C configuration after enabling it */
-	I2C_Init(sEE_I2C, &I2C_InitStructure);
-}
-
-#define Timed(x) Timeout = 0xFFFF; while (x) { if (Timeout-- == 0) goto errReturn;}
-
-/*
- *  See AN2824 STM32F10xxx I2C optimized examples
- *
- *  This code implements polling based solution
- *
- */
-
-/**
- *  Names of events used in stdperipheral library
- *
- *      I2C_EVENT_MASTER_MODE_SELECT                          : EV5
- *      I2C_EVENT_MASTER_TRANSMITTER_MODE_SELECTED            : EV6
- *      I2C_EVENT_MASTER_RECEIVER_MODE_SELECTED               : EV6
- *      I2C_EVENT_MASTER_BYTE_RECEIVED                        : EV7
- *      I2C_EVENT_MASTER_BYTE_TRANSMITTING                    : EV8
- *      I2C_EVENT_MASTER_BYTE_TRANSMITTED                     : EV8_2
- *
- **/
-
-/*
- *  Read process is documented in RM008
- *
- *   There are three cases  -- read  1 byte  AN2824 Figure 2
- *                             read  2 bytes AN2824 Figure 2
- *                             read >2 bytes AN2824 Figure 1
- */
-
-BaseType_t I2C_Read(I2C_TypeDef* I2Cx, uint8_t *buf, uint32_t nbyte, uint8_t SlaveAddress)
-{
-	__IO uint32_t Timeout = 0;
-
-	//    I2Cx->CR2 |= I2C_IT_ERR;  interrupts for errors
-
-	if (!nbyte)
-		return pdTRUE;
-
-	// Wait for idle I2C interface
-
-	Timed(I2C_GetFlagStatus(I2Cx, I2C_FLAG_BUSY));
-
-	// Enable Acknowledgement, clear POS flag
-
-	I2C_AcknowledgeConfig(I2Cx, ENABLE);
-	I2C_NACKPositionConfig(I2Cx, I2C_NACKPosition_Current);
-
-	// Intiate Start Sequence (wait for EV5
-
-	I2C_GenerateSTART(I2Cx, ENABLE);
-	Timed(!I2C_CheckEvent(I2Cx, I2C_EVENT_MASTER_MODE_SELECT));
-
-	// Send Address
-
-	I2C_Send7bitAddress(I2Cx, SlaveAddress, I2C_Direction_Receiver);
-
-	// EV6
-
-	Timed(!I2C_GetFlagStatus(I2Cx, I2C_FLAG_ADDR));
-
-	if (nbyte == 1)
-	{
-
-		// Clear Ack bit
-
-		I2C_AcknowledgeConfig(I2Cx, DISABLE);
-
-		// EV6_1 -- must be atomic -- Clear ADDR, generate STOP
-
-		__disable_irq();
-		(void) I2Cx->SR2;
-		I2C_GenerateSTOP(I2Cx, ENABLE);
-		__enable_irq();
-
-		// Receive data   EV7
-
-		Timed(!I2C_GetFlagStatus(I2Cx, I2C_FLAG_RXNE));
-		*buf++ = I2C_ReceiveData(I2Cx);
-
-	}
-	else if (nbyte == 2)
-	{
-		// Set POS flag
-
-		I2C_NACKPositionConfig(I2Cx, I2C_NACKPosition_Next);
-
-		// EV6_1 -- must be atomic and in this order
-
-		__disable_irq();
-		(void) I2Cx->SR2;                           // Clear ADDR flag
-		I2C_AcknowledgeConfig(I2Cx, DISABLE);       // Clear Ack bit
-		__enable_irq();
-
-		// EV7_3  -- Wait for BTF, program stop, read data twice
-
-		Timed(!I2C_GetFlagStatus(I2Cx, I2C_FLAG_BTF));
-
-		__disable_irq();
-		I2C_GenerateSTOP(I2Cx, ENABLE);
-		*buf++ = I2Cx->DR;
-		__enable_irq();
-
-		*buf++ = I2Cx->DR;
-
-	}
-	else
-	{
-		(void) I2Cx->SR2;                           // Clear ADDR flag
-		while (nbyte-- != 3)
-		{
-			// EV7 -- cannot guarantee 1 transfer completion time, wait for BTF
-			//        instead of RXNE
-
-			Timed(!I2C_GetFlagStatus(I2Cx, I2C_FLAG_BTF));
-			*buf++ = I2C_ReceiveData(I2Cx);
-		}
-
-		Timed(!I2C_GetFlagStatus(I2Cx, I2C_FLAG_BTF));
-
-		// EV7_2 -- Figure 1 has an error, doesn't read N-2 !
-
-		I2C_AcknowledgeConfig(I2Cx, DISABLE);           // clear ack bit
-
-		__disable_irq();
-		*buf++ = I2C_ReceiveData(I2Cx);             // receive byte N-2
-		I2C_GenerateSTOP(I2Cx, ENABLE);                  // program stop
-		__enable_irq();
-
-		*buf++ = I2C_ReceiveData(I2Cx);             // receive byte N-1
-
-		// wait for byte N
-
-		Timed(!I2C_CheckEvent(I2Cx, I2C_EVENT_MASTER_BYTE_RECEIVED));
-		*buf++ = I2C_ReceiveData(I2Cx);
-
-		nbyte = 0;
-
-	}
-
-	// Wait for stop
-
-	Timed(I2C_GetFlagStatus(I2Cx, I2C_FLAG_STOPF));
-	return pdTRUE;
-
-	errReturn:
-
-	// Any cleanup here
-	return pdFALSE;
-
-}
-
-/*
- * Read buffer of bytes -- AN2824 Figure 3
- */
-
-BaseType_t I2C_Write(I2C_TypeDef* I2Cx, const uint8_t* buf, uint32_t nbyte,	uint8_t SlaveAddress)
-{
-	__IO uint32_t Timeout = 0;
-
-	/* Enable Error IT (used in all modes: DMA, Polling and Interrupts */
-	//    I2Cx->CR2 |= I2C_IT_ERR;
-	if (nbyte)
-	{
-		Timed(I2C_GetFlagStatus(I2Cx, I2C_FLAG_BUSY));
-
-		// Intiate Start Sequence
-
-		I2C_GenerateSTART(I2Cx, ENABLE);
-		Timed(!I2C_CheckEvent(I2Cx, I2C_EVENT_MASTER_MODE_SELECT));
-
-		// Send Address  EV5
-
-		I2C_Send7bitAddress(I2Cx, SlaveAddress, I2C_Direction_Transmitter);
-		Timed(!I2C_CheckEvent(I2Cx, I2C_EVENT_MASTER_TRANSMITTER_MODE_SELECTED));
-
-		// EV6
-
-		// Write first byte EV8_1
-
-		I2C_SendData(I2Cx, *buf++);
-
-		while (--nbyte)
-		{
-
-			// wait on BTF
-
-			Timed(!I2C_GetFlagStatus(I2Cx, I2C_FLAG_BTF));
-			I2C_SendData(I2Cx, *buf++);
-		}
-
-		Timed(!I2C_GetFlagStatus(I2Cx, I2C_FLAG_BTF));
-		I2C_GenerateSTOP(I2Cx, ENABLE);
-		Timed(I2C_GetFlagStatus(I2C1, I2C_FLAG_STOPF));
-	}
-	return pdTRUE;
-	errReturn: return pdFALSE;
-}
-
 
 // 读取照度传感器
 BaseType_t ReadLightSensor(uint16_t* unLight)
 {
-	BaseType_t		bRet 	= false;
-	msg_t 		status 	= RDY_OK;
-	uint8_t		data[2];
+	BaseType_t		bRet 	= pdFALSE;
+	uint8_t			data[2];
 
-	i2cAcquireBus(&I2CD1);
 	do
 	{
 		// Power on
 		data[0] = 1;
-		status = i2cMasterTransmitTimeout(&I2CD1, BH1750_I2C_ADDR, data, 1, data, 0, MS2ST(4));
-		if (status != RDY_OK)
+		bRet = I2C_Write(BH1750_I2C, data, 1, BH1750_I2C_ADDR);
+		if (bRet != pdTRUE)
 		{
 			break;
 		}
 
 		// Measure H2
 		data[0] = 0x11;
-		status = i2cMasterTransmitTimeout(&I2CD1, BH1750_I2C_ADDR, data, 1, data, 0, MS2ST(4));
-		if (status != RDY_OK)
+		bRet = I2C_Write(BH1750_I2C, data, 1, BH1750_I2C_ADDR);
+		if (bRet != pdTRUE)
 		{
 			break;
 		}
 
 		// Delay
-		chThdSleepMilliseconds(200);
+		vTaskDelay(pdMS_TO_TICKS(200));
 
 		// Read result
-		status = i2cMasterReceiveTimeout(&I2CD1, BH1750_I2C_ADDR, data, 2, MS2ST(10));
-		if (status != RDY_OK)
+		bRet = I2C_Read(BH1750_I2C, data, 2, BH1750_I2C_ADDR);
+		if (bRet != pdTRUE)
 		{
 			break;
 		}
 
 		// 组合数据
 		*unLight = ((uint16_t)(data[0]) << 8) | (uint8_t)(data[1]);
-
-		bRet = true;
 	} while (0);
-
-	i2cReleaseBus(&I2CD1);
 
 	return bRet;
 }

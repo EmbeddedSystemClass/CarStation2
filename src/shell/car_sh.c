@@ -12,7 +12,7 @@
 #include "../power/power.h"
 #include "../LED/led.h"
 #include "../GPS/GPs.h"
-#include "../I2C/myi2c.h"
+#include "../I2C/i2cdevices.h"
 #include "../RTC/myRTC.h"
 
 #define mainUART_COMMAND_CONSOLE_STACK_SIZE		( configMINIMAL_STACK_SIZE * 10 )
