@@ -59,81 +59,129 @@ BaseType_t InitRTC(void)
 
 // 设置时间，获取时间（没有参数时）
 void cmd_time(BaseSequentialStream *chp, int argc, char *argv[])
+static BaseType_t cmd_time( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString )
+
 {
-	RTCTime		timespec;
-	struct tm	now;
+	uint32_t		now_sec;
+	struct tm		now;
+	const char *	pcParameter;
+	BaseType_t 		xParameterStringLength;
 
-	if (argc == 0)
+	pcParameter = FreeRTOS_CLIGetParameter(pcCommandString, 1, &xParameterStringLength);
+
+	if (!pcParameter)
 	{
-		// 获取时间
-		rtcGetTime(&RTCD1, &timespec);
-		localtime_r((time_t*)&timespec.tv_sec, &now);
+		// 没有第一个参数，获取时间
+		now_sec = RTC_GetCounter();
+		localtime_r((time_t*)&now_sec, &now);
 
-		chprintf(chp, "time %d %d %d %d %d %d\r\n",
+		sprintf(pcWriteBuffer, "time %d %d %d %d %d %d\r\n",
 				now.tm_year + 1900,
 				now.tm_mon + 1,
 				now.tm_mday,
 				now.tm_hour,
 				now.tm_min,
 				now.tm_sec);
-
-		return;
 	}
 	else
 	{
 		// 设置时间（需要年、月、日、时、分，5个必须参数，秒可选）
-		if ((argc < 5) || (argc > 6))
+		do
 		{
-			// usage
-			chprintf(chp, "time yyyy mm dd hh mm [ss]\r\n");
-			return;
-		}
-
-		now.tm_year = atoi(argv[0]) - 1900;
-		if (now.tm_year < 100)
-		{
-			chprintf(chp, "Year wrong!\r\n");
-			return;
-		}
-		now.tm_mon = atoi(argv[1]) - 1;
-		if ( (now.tm_mon < 0) || (now.tm_mon > 12) )
-		{
-			chprintf(chp, "Month wrong!\r\n");
-			return;
-		}
-		now.tm_mday = atoi(argv[2]);
-		if (now.tm_mday > 31)
-		{
-			chprintf(chp, "Day wrong!\r\n");
-			return;
-		}
-		now.tm_hour = atoi(argv[3]);
-		if ( (now.tm_hour < 0) || (now.tm_hour > 23) )
-		{
-			chprintf(chp, "Hour wrong!\r\n");
-			return;
-		}
-		now.tm_min = atoi(argv[4]);
-		if ( (now.tm_min < 0) || (now.tm_min > 59) )
-		{
-			chprintf(chp, "Minute wrong!\r\n");
-			return;
-		}
-		if (argc == 6)
-		{
-			now.tm_sec = atoi(argv[5]);
-			if ( (now.tm_sec < 0) || (now.tm_sec > 59) )
+			now.tm_year = atoi(pcParameter) - 1900;
+			if (now.tm_year < 100)
 			{
-				chprintf(chp, "Second wrong!\r\n");
-				return;
+				sprintf(pcWriteBuffer, "Year wrong!\r\n");
+				break;
 			}
-		}
 
-		timespec.tv_sec = mktime(&now);
-		timespec.tv_msec = 0;
-		rtcSetTime(&RTCD1, &timespec);
+			pcParameter = FreeRTOS_CLIGetParameter(pcCommandString, 2, &xParameterStringLength);
+			if (!pcParameter)
+			{
+				break;
+			}
+			now.tm_mon = atoi(pcParameter) - 1;
+			if ( (now.tm_mon < 0) || (now.tm_mon > 12) )
+			{
+				sprintf(pcWriteBuffer, "Month wrong!\r\n");
+				break;;
+			}
 
+			pcParameter = FreeRTOS_CLIGetParameter(pcCommandString, 3, &xParameterStringLength);
+			if (!pcParameter)
+			{
+				break;
+			}
+			now.tm_mday = atoi(pcParameter);
+			if (now.tm_mday > 31)
+			{
+				sprintf(pcWriteBuffer, "Day wrong!\r\n");
+				break;;
+			}
+
+			pcParameter = FreeRTOS_CLIGetParameter(pcCommandString, 4, &xParameterStringLength);
+			if (!pcParameter)
+			{
+				break;
+			}
+			now.tm_hour = atoi(pcParameter);
+			if ( (now.tm_hour < 0) || (now.tm_hour > 23) )
+			{
+				sprintf(pcWriteBuffer, "Hour wrong!\r\n");
+				break;
+			}
+
+			pcParameter = FreeRTOS_CLIGetParameter(pcCommandString, 5, &xParameterStringLength);
+			if (!pcParameter)
+			{
+				break;
+			}
+			now.tm_min = atoi(pcParameter);
+			if ( (now.tm_min < 0) || (now.tm_min > 59) )
+			{
+				sprintf(pcWriteBuffer, "Minute wrong!\r\n");
+				break;
+			}
+
+			pcParameter = FreeRTOS_CLIGetParameter(pcCommandString, 2, &xParameterStringLength);
+			if (pcParameter)
+			{
+				now.tm_sec = atoi(pcParameter);
+				if ( (now.tm_sec < 0) || (now.tm_sec > 59) )
+				{
+					sprintf(pcWriteBuffer, "Second wrong!\r\n");
+					break;
+				}
+			}
+			else
+			{
+				now.tm_sec = 0;
+			}
+
+			/* Wait until last write operation on RTC registers has finished */
+			RTC_WaitForLastTask();
+			/* Change the current time */
+			RTC_SetCounter(mktime(&now));
+			/* Wait until last write operation on RTC registers has finished */
+			RTC_WaitForLastTask();
+
+			return pdFALSE;
+		} while(0);
+
+		// 参数不对
+		sprintf(pcWriteBuffer, "Fail to set time.\r\n");
 	}
+
+	return pdFALSE;
 }
+
+const CLI_Command_Definition_t cmd_def_time =
+{
+	"time",
+	"\r\ntime [yyyy mm dd hh mm [ss]] \r\n Get&Set RTC date&time.\r\n",
+	cmd_time, /* The function to run. */
+	-1
+};
+
 
 

@@ -77,7 +77,7 @@ void GetLight(void)
 {
 	uint16_t		light;
 	Msg*			msg;
-	msg_t			err;
+	BaseType_t		err;
 
 	if (!ReadLightSensor(&light))
 	{
@@ -103,7 +103,7 @@ void GetLight(void)
 
 	err = MSG_SEND(msg);
 
-	if (err == RDY_OK)
+	if (err == pdPASS)
 	{
 		// update cache
 		c_Light = light;
@@ -138,14 +138,12 @@ uint8_t SHT21Checksum(uint8_t* pData, uint8_t length)
 }
 
 // 读取温湿度数据
-BaseType_t ReadSHT21(I2CDriver* i2cp, uint16_t* pTemperature, uint16_t* pHumidity)
+BaseType_t ReadSHT21(I2C_TypeDef* I2Cx, uint16_t* pTemperature, uint16_t* pHumidity)
 {
-	BaseType_t		bRet = false;
-	msg_t 		status 	= RDY_OK;
+	BaseType_t	bRet = pdFALSE;
 	uint8_t		data[3];
 	uint8_t		i;
 
-	i2cAcquireBus(i2cp);
 	do
 	{
 		// 阻塞方式测量温度
@@ -156,25 +154,27 @@ BaseType_t ReadSHT21(I2CDriver* i2cp, uint16_t* pTemperature, uint16_t* pHumidit
 //			break;
 //		}
 		data[0] = 0xF3;
-		status = i2cMasterTransmitTimeout(i2cp, SHT21_I2C_ADDR, data, 1, NULL, 0, MS2ST(10));
-		if (status != RDY_OK)
+		bRet = I2C_Write(I2Cx, data, 1, SHT21_I2C_ADDR);
+		if (bRet != pdTRUE)
 		{
 			break;
 		}
 
-		chThdSleepMilliseconds(100);
+		vTaskDelay(pdMS_TO_TICKS(100));
 
 		for (i = 0; i < 10; i++)
 		{
-			status = i2cMasterReceiveTimeout(i2cp, SHT21_I2C_ADDR, data, 3, MS2ST(10));
+			bRet = I2C_Read(I2Cx, data, 3, SHT21_I2C_ADDR);
 
-			if (status == RDY_OK)
+			if (bRet == pdTRUE)
 			{
 				break;
 			}
+
+			vTaskDelay(pdMS_TO_TICKS(10));
 		}
 
-		if (status != RDY_OK)
+		if (bRet != pdTRUE)
 		{
 			break;
 		}
@@ -182,6 +182,7 @@ BaseType_t ReadSHT21(I2CDriver* i2cp, uint16_t* pTemperature, uint16_t* pHumidit
 		// Check CRC
 		if (data[2] != SHT21Checksum(data, 2))
 		{
+			bRet = pdFALSE;
 			break;
 		}
 
@@ -197,25 +198,27 @@ BaseType_t ReadSHT21(I2CDriver* i2cp, uint16_t* pTemperature, uint16_t* pHumidit
 //		}
 
 		data[0] = 0xF5;
-		status = i2cMasterTransmitTimeout(i2cp, SHT21_I2C_ADDR, data, 1, NULL, 0, MS2ST(10));
-		if (status != RDY_OK)
+		bRet = I2C_Write(I2Cx, data, 1, SHT21_I2C_ADDR);
+		if (bRet != pdTRUE)
 		{
 			break;
 		}
 
-		chThdSleepMilliseconds(30);
+		vTaskDelay(pdMS_TO_TICKS(30));
 
 		for (i = 0; i < 10; i++)
 		{
-			status = i2cMasterReceiveTimeout(i2cp, SHT21_I2C_ADDR, data, 3, MS2ST(10));
+			bRet = I2C_Read(I2Cx, data, 3, SHT21_I2C_ADDR);
 
-			if (status == RDY_OK)
+			if (bRet == pdTRUE)
 			{
 				break;
 			}
+
+			vTaskDelay(pdMS_TO_TICKS(10));
 		}
 
-		if (status != RDY_OK)
+		if (bRet != pdTRUE)
 		{
 			break;
 		}
@@ -223,15 +226,15 @@ BaseType_t ReadSHT21(I2CDriver* i2cp, uint16_t* pTemperature, uint16_t* pHumidit
 		// check CRC
 		if (data[2] != SHT21Checksum(data, 2))
 		{
+			bRet = pdFALSE;
 			break;
 		}
 
 		*pHumidity = data[0];
 		*pHumidity = (*pHumidity << 8) + data[1];
 
-		bRet = true;
+		bRet = pdTRUE;
 	} while (0);
-	i2cReleaseBus(i2cp);
 
 	return bRet;
 }
@@ -244,13 +247,12 @@ BaseType_t ReadSHT21(I2CDriver* i2cp, uint16_t* pTemperature, uint16_t* pHumidit
 // Last
 void GetTemperatureAndHumidity(void)
 {
-	BaseType_t		bRet;
+	BaseType_t	bRet;
 	uint16_t	unTemperature, unHumidity;
 	Msg*		msg;
-	msg_t		err;
 
 	// inside
-	bRet = ReadSHT21(&I2CD2, &unTemperature, &unHumidity);
+	bRet = ReadSHT21(SHT21_IN_I2C, &unTemperature, &unHumidity);
 	if (bRet)
 	{
 		// 判断是否有变化
@@ -265,8 +267,8 @@ void GetTemperatureAndHumidity(void)
 				msg->Param.SHT21Data.Humidity = (int16_t)HUMIDITY_CONVERT(unHumidity);
 
 				// Send
-				err = MSG_SEND(msg);
-				if (err == RDY_OK)
+				bRet = MSG_SEND(msg);
+				if (bRet == pdPASS)
 				{
 					// 成功时才更新内存缓存的值
 					c_Temperature_inside = unTemperature;
@@ -282,7 +284,7 @@ void GetTemperatureAndHumidity(void)
 	}
 
 	// outside
-	bRet = ReadSHT21(&I2CD1, &unTemperature, &unHumidity);
+	bRet = ReadSHT21(SHT21_OUT_I2C, &unTemperature, &unHumidity);
 	if (bRet)
 	{
 		// 判断是否有变化
@@ -295,8 +297,8 @@ void GetTemperatureAndHumidity(void)
 				msg->Param.SHT21Data.Temperature = (int16_t)TEMPERATURE_CONVERT(unTemperature);
 				msg->Param.SHT21Data.Humidity = (int16_t)HUMIDITY_CONVERT(unHumidity);
 
-				err = MSG_SEND(msg);
-				if (err == RDY_OK)
+				bRet = MSG_SEND(msg);
+				if (bRet == pdPASS)
 				{
 					// update cache
 					c_Temperature_outside = unTemperature;
@@ -337,6 +339,8 @@ static BaseType_t cmd_light( char *pcWriteBuffer, size_t xWriteBufferLen, const 
 	{
 		sprintf(pcWriteBuffer, "Read light failed.\r\n");
 	}
+
+	return pdFALSE;
 }
 
 const CLI_Command_Definition_t cmd_def_light =
@@ -344,6 +348,6 @@ const CLI_Command_Definition_t cmd_def_light =
 	"light",
 	"\r\nlight \r\n Get light sensor value.\r\n",
 	cmd_light, /* The function to run. */
-	2
+	0
 };
 

@@ -9,10 +9,12 @@
 #define MYRTC_H_
 
 #include <FreeRTOS.h>
+#include "stm32f10x.h"
+#include "..\shell\FreeRTOS_CLI.h"
 
 BaseType_t	InitRTC(void);
 
-void cmd_time(BaseSequentialStream *chp, int argc, char *argv[]);
+extern const CLI_Command_Definition_t cmd_def_time;
 
 
 #endif /* MYRTC_H_ */
