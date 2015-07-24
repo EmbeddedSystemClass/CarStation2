@@ -6,59 +6,138 @@
  */
 
 #include "myRTC.h"
-#include <hal.h>
 #include <Msg/Msg.h>
 #include <time.h>
-#include <chprintf.h>
 #include <stdlib.h>
 
-static void rtc_cb(RTCDriver *rtcp, rtcevent_t event)
+// RTC Interrupt
+void RTC_IRQHandler(void)
 {
-	RTCTime		timespec;
 	Msg*		msg;
-	msg_t		err;
+	BaseType_t	ret;
 
-	switch (event)
+	if (RTC_GetITStatus(RTC_IT_SEC) != RESET)
 	{
-	case RTC_EVENT_OVERFLOW:
-	case RTC_EVENT_ALARM:
-		break;
-	case RTC_EVENT_SECOND:
-		// 读取RTC，每秒发送一次（判断分钟由主处理模块完成，主处理模块还利用这个1秒消息构建一个秒级的定时器）
-		chSysLockFromIsr();
-		rtcGetTimeI(rtcp, &timespec);
-		msg = MSG_NEW_I;
+		/* Clear the RTC Second interrupt */
+		RTC_ClearITPendingBit(RTC_IT_SEC);
+
+		msg = MSG_NEW;
 		if (msg)
 		{
 			msg->Id = MSG_RTC_SECOND;
-			msg->Param.RTCSecond.time = timespec.tv_sec;
-			err = MSG_SEND_I(msg);
-			if (err != RDY_OK)
+			msg->Param.RTCSecond.time = RTC_GetCounter();
+			ret = MSG_SEND_I(msg);
+			if (ret != pdPASS)
 			{
-				MSG_FREE_I(msg);
+				MSG_FREE(msg);
 			}
 		}
-		chSysUnlockFromIsr();
 
-		// 触发Event，用于传感器测量线程定时工作，采集数据给出处理线程
-		// TODO
+		/* Wait until last write operation on RTC registers has finished */
+		RTC_WaitForLastTask();
 
-		break;
-
-	default:
-		break;
+		// TODO:触发Event，用于传感器测量线程定时工作，采集数据给出处理线程
 	}
+}
+
+// Configures RTC
+void RTC_Configuration(void)
+{
+	/* Enable PWR and BKP clocks */
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_PWR | RCC_APB1Periph_BKP, ENABLE);
+
+	/* Allow access to BKP Domain */
+	PWR_BackupAccessCmd(ENABLE);
+
+	/* Reset Backup Domain */
+	BKP_DeInit();
+
+	/* Enable LSE */
+	RCC_LSEConfig(RCC_LSE_ON);
+	/* Wait till LSE is ready */
+	while (RCC_GetFlagStatus(RCC_FLAG_LSERDY) == RESET)
+	{
+	}
+
+	/* Select LSE as RTC Clock Source */
+	RCC_RTCCLKConfig(RCC_RTCCLKSource_LSE);
+
+	/* Enable RTC Clock */
+	RCC_RTCCLKCmd(ENABLE);
+
+	/* Wait for RTC registers synchronization */
+	RTC_WaitForSynchro();
+
+	/* Wait until last write operation on RTC registers has finished */
+	RTC_WaitForLastTask();
+
+	/* Enable the RTC Second */
+	RTC_ITConfig(RTC_IT_SEC, ENABLE);
+
+	/* Wait until last write operation on RTC registers has finished */
+	RTC_WaitForLastTask();
+
+	/* Set RTC prescaler: set RTC period to 1sec */
+	RTC_SetPrescaler(32767); /* RTC period = RTCCLK/RTC_PR = (32.768 KHz)/(32767+1) */
+
+	/* Wait until last write operation on RTC registers has finished */
+	RTC_WaitForLastTask();
+}
+
+/**
+  * @brief  Configures the nested vectored interrupt controller.
+  * @param  None
+  * @retval None
+  */
+void NVIC_Configuration(void)
+{
+	NVIC_InitTypeDef NVIC_InitStructure;
+
+	/* Configure one bit for preemption priority */
+	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_1);
+
+	/* Enable the RTC Interrupt */
+	NVIC_InitStructure.NVIC_IRQChannel = RTC_IRQn;
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1;
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+	NVIC_Init(&NVIC_InitStructure);
 }
 
 BaseType_t InitRTC(void)
 {
-	// Set RTC callback
-	rtcSetCallback(&RTCD1, rtc_cb);
-	return true;
+	/* NVIC configuration */
+	NVIC_Configuration();
+
+	if (BKP_ReadBackupRegister(BKP_DR1) != 0xA5A5)
+	{
+		/* Backup data register value is not correct or not yet programmed (when
+		 the first time the program is executed) */
+		/* RTC Configuration */
+		RTC_Configuration();
+
+		// 1970 1 1 00:00:00
+		RTC_SetCounter(0);
+
+		BKP_WriteBackupRegister(BKP_DR1, 0xA5A5);
+	}
+	else
+	{
+		/* Wait for RTC registers synchronization */
+		RTC_WaitForSynchro();
+
+		/* Enable the RTC Second */
+		RTC_ITConfig(RTC_IT_SEC, ENABLE);
+		/* Wait until last write operation on RTC registers has finished */
+		RTC_WaitForLastTask();
+	}
+
+	/* Clear reset flags */
+	RCC_ClearFlag();
+	return pdTRUE;
 }
 
 // 设置时间，获取时间（没有参数时）
-void cmd_time(BaseSequentialStream *chp, int argc, char *argv[])
 static BaseType_t cmd_time( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString )
 
 {

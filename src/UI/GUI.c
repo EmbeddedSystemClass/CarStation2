@@ -8,20 +8,17 @@
 #include "GUI.h"
 
 // Mailbox定义
-#define GUI_MB_SIZE			10
-static void*	gui_mb_buffer[GUI_MB_SIZE];
-
-MAILBOX_DECL(gui_mb, gui_mb_buffer, GUI_MB_SIZE);
+QueueHandle_t					gui_queue;
+const unsigned portBASE_TYPE 	uxGUIQueueSize = 10;
 
 // 函数定义
 
 // GUI工作线程
-static WORKING_AREA(guiThread, 512);
-__attribute__((noreturn))
-static msg_t gui_Thread(void *arg)
+#define GUI_TASK_STACK_SIZE			512
+static void GUITask( void * pvParameters)
 {
-	(void)arg;
-	msg_t	ret, msg;
+	BaseType_t	ret;
+	Msg*		msg;
 
 	// 初始化gfx
 	gfxInit();
@@ -35,11 +32,11 @@ static msg_t gui_Thread(void *arg)
 
 
 	// 循环处理Mailbox消息
-	while (true)
+	while (1)
 	{
-		ret = chMBFetch(&gui_mb, &msg, MS2ST(100));
+		ret = xQueueReceive(gui_queue, &msg, pdMS_TO_TICKS(100));
 
-		if (ret == RDY_OK)
+		if (ret == pdPASS)
 		{
 			// 过滤出特别的消息（例如：光照指数，用于调光；开关显示屏等）
 			// TODO
@@ -54,16 +51,18 @@ static msg_t gui_Thread(void *arg)
 		// 做其他检查事务
 		// TODO
 	}
-	//chThdExit(0);
 }
 
 
 BaseType_t InitGUI(void)
 {
-	//创建GUI线程，由GUI线程进行初始化和后续的工作
-	chThdCreateStatic(guiThread, sizeof(guiThread), NORMALPRIO, gui_Thread, NULL);
+	// 初始化GUI消息队列
+	gui_queue = xQueueCreate(uxGUIQueueSize, sizeof(Msg*));
 
-	return true;
+	//创建GUI线程，由GUI线程进行初始化和后续的工作
+	xTaskCreate( GUITask, "GUI", configMINIMAL_STACK_SIZE, NULL, 2, NULL );
+
+	return pdTRUE;
 }
 
 

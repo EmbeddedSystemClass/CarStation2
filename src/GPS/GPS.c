@@ -6,25 +6,30 @@
  *      Author: daniel
  */
 
-#include <hal.h>
-#include <chprintf.h>
 #include "GPS.h"
 #include <string.h>
 #include <stdio.h>
 #include "Msg/Msg.h"
 
 // GPS serial config(9600bps)
-static SerialConfig		GPSConfig =
-{
-  9600,
-  0,
-  USART_CR2_STOP1_BITS | USART_CR2_LINEN,
-  0
-};
+#define USARTgps                  USART2
+#define USARTgps_GPIO             GPIOA
+#define USARTgps_CLK              RCC_APB1Periph_USART2
+#define USARTgps_GPIO_CLK         RCC_APB2Periph_GPIOA
+#define USARTgps_RxPin            GPIO_Pin_3
+#define USARTgps_TxPin            GPIO_Pin_2
 
-#define		MAX_GPS_BUFFER		128
-static char	gpsBuffer[MAX_GPS_BUFFER];		// 存放接收到的缓冲数据
+// GPS使能控制引脚
+#define USARTgps_GPS_GPIO         GPIOA
+#define USARTgps_GPS_GPIO_CLK     RCC_APB2Periph_GPIOA
+#define USARTgps_GPS_Pin          GPIO_Pin_1
+
+#define			MAX_GPS_BUFFER		128
+static char		gpsBuffer[MAX_GPS_BUFFER];		// 存放接收到的缓冲数据
 static char*	gpsBufferPointer;				// 当前缓冲器的空白位置指针
+
+// 触发命令处理的二值信号量
+static xSemaphoreHandle		s_xProcessEvent;
 
 // GPS原始数据（用字符串存放，不需要处理就可以判断是否变化，有变化后在进行字符串转数字，再发送到处理线程上）
 // 所有数据都要判断各自的有效性
@@ -56,73 +61,147 @@ static char	cDate[6];
 
 // 卫星个数
 
-static WORKING_AREA(gpsThread, 128);
-static msg_t gps_Thread(void *arg);
 static BaseType_t getGPSCommand(void);
 
-BaseType_t InitGPS(void)
+void USART2_IRQHandler(void)
 {
-	BaseType_t	bRet;
+	portBASE_TYPE xHigherPriorityTaskWoken = pdFALSE;
+	char cChar;
 
-	bRet = pdTRUE;
+	if (USART_GetITStatus(USART2, USART_IT_RXNE) == SET)
+	{
+		cChar = USART_ReceiveData(USART2);
 
-	// 启动GPS处理线程
-	chThdCreateStatic(gpsThread, sizeof(gpsThread), NORMALPRIO, gps_Thread, NULL);
+		// 接收到的字符写入到缓冲区中
+		*gpsBufferPointer = cChar;
 
+		// 判断是否是\n，如果是就触发处理线程进行一次命令分析
+		if (cChar == '\n')
+		{
+			xSemaphoreGiveFromISR(s_xProcessEvent);
+		}
+	}
 
-	return bRet;
+	portEND_SWITCHING_ISR(xHigherPriorityTaskWoken);
 }
+
+
 void EnableGPS(BaseType_t bEnable)
 {
 	if (bEnable)
 	{
 		// 开启GPS模块
-		palSetPad(GPIO_GPS_PORT, GPIO_GPS_BIT);
-		sdStart(&SD2, &GPSConfig);
+		GPIO_SetBits(USARTgps_GPS_GPIO, USARTgps_GPS_Pin);
+		USART_Cmd(USARTgps, ENABLE);
 	}
 	else
 	{
-		palClearPad(GPIO_GPS_PORT, GPIO_GPS_BIT);
-		sdStop(&SD2);
+		GPIO_ResetBits(USARTgps_GPS_GPIO, USARTgps_GPS_Pin);
+		USART_Cmd(USARTgps, DISABLE);
 	}
 }
 
 
 // gps线程，检查是否需要开启GPS模块，以及处理GPS接收到的数据，然后发送到统一的处理模块
 // 处理数据包含：时间、位置、车速、方位角、当前卫星数
-static msg_t gps_Thread(void *arg) {
+#define GPS_TASK_STACK_SIZE			128
+static void GPSTask(void * pvParameters)
+{
+	int16_t nRead;
 
-  (void)arg;
+	// test：开启GPS
+	//EnableGPS(true);
 
-  int	nRead;
+	while (pdTRUE)
+	{
+		// 判断是否开启或关闭GPS（只在车上电源处于ACC，即供电状态，才启动）
+		// TODO:
 
-  chRegSetThreadName("gps");
+		// 等待二值信号量触发后，做一次命令分析
+		xSemaphoreTake(s_xProcessEvent);
 
-  // test：开启GPS
-  //EnableGPS(true);
-  gpsBufferPointer = gpsBuffer;
+		gpsBufferPointer = gpsBuffer + nRead;
+		// 处理数据
 
+		// 分析缓冲器（多次分析，可能一个缓冲器内放入两个或以上的GPS指令）
+		getGPSCommand();
 
-  while (pdTRUE) {
-	  // 判断是否开启或关闭GPS（只在车上电源处于ACC，即供电状态，才启动）
-	  // TODO:
+		// chThdSleepMilliseconds(500);
+	}
+}
 
+BaseType_t InitGPS(void)
+{
+	// 初始化GPS使用的串口
+	GPIO_InitTypeDef GPIO_InitStructure;
+	USART_InitTypeDef USART_InitStructure;
+	NVIC_InitTypeDef NVIC_InitStructure;
 
-	  // 开始读取串口2数据
-	  nRead = chnReadTimeout(&SD2, (unsigned char*)gpsBufferPointer, (gpsBuffer + sizeof(gpsBuffer) - gpsBufferPointer), MS2ST(100));
-	  if (nRead > 0)
-	  {
-		  gpsBufferPointer = gpsBuffer + nRead;
-		  // 处理数据
+	// 初始化二值信号量
+	vSemaphoreCreateBinary(s_xProcessEvent);
 
-		  // 分析缓冲器（多次分析，可能一个缓冲器内放入两个或以上的GPS指令）
-		  getGPSCommand();
-	  }
+	// 初始化缓冲区位置指针
+	gpsBufferPointer = gpsBuffer;
 
-    // chThdSleepMilliseconds(500);
-  }
+	// 初始化管脚
+	/* Enable USARTgps Clock */
+	RCC_APB1PeriphClockCmd(USARTgps_CLK, ENABLE);
+	RCC_APB2PeriphClockCmd(USARTgps_GPIO_CLK | USARTgps_GPS_GPIO_CLK, ENABLE);
+	/*!< GPIO configuration */
+	/* Configure USARTgps Rx as input floating */
+	GPIO_InitStructure.GPIO_Pin = USARTgps_RxPin;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
+	GPIO_Init(USARTgps_GPIO, &GPIO_InitStructure);
 
-  return 0;
+	/* Configure USARTgps Tx as alternate function pugps-pull */
+	GPIO_InitStructure.GPIO_Pin = USARTgps_TxPin;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
+	GPIO_Init(USARTgps_GPIO, &GPIO_InitStructure);
+
+	// 蓝牙控制引脚
+	GPIO_InitStructure.GPIO_Pin = USARTgps_GPS_Pin;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+	GPIO_Init(USARTgps_GPS_GPIO, &GPIO_InitStructure);
+
+	// 初始化UART
+	/* USARTgps and USARTz configuration ------------------------------------------------------*/
+	/* USARTgps and USARTz configured as follow:
+	 - BaudRate = 230400 baud
+	 - Word Length = 8 Bits
+	 - One Stop Bit
+	 - Even parity
+	 - Hardware flow control disabled (RTS and CTS signals)
+	 - Receive and transmit enabled
+	 */
+	USART_InitStructure.USART_BaudRate = 9600;
+	USART_InitStructure.USART_WordLength = USART_WordLength_8b;
+	USART_InitStructure.USART_StopBits = USART_StopBits_1;
+	USART_InitStructure.USART_Parity = USART_Parity_No;
+	USART_InitStructure.USART_HardwareFlowControl =
+			USART_HardwareFlowControl_None;
+	USART_InitStructure.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;
+
+	/* Configure USARTgps */
+	USART_Init(USARTgps, &USART_InitStructure);
+
+	//Enable the interrupt
+	USART_ITConfig(USARTgps, USART_IT_RXNE, ENABLE);
+
+	NVIC_InitStructure.NVIC_IRQChannel = USART1_IRQn;
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 6;
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+	NVIC_Init(&NVIC_InitStructure);
+
+	// 启动GPS处理线程（要先启动线程，才能启动串口）
+	xTaskCreate( GPSTask, "GPS", GPS_TASK_STACK_SIZE, NULL, 1, NULL );
+
+	/* Enable the USARTgps */
+	// 在独立的函数中控制
+
+	return pdTRUE;
 }
 
 BaseType_t GPSCommandChecksum(int nLength)

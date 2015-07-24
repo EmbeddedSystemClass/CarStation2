@@ -115,7 +115,7 @@ void InitMsgQueue(void);
 
 #define MSG_NEW			(Msg*)pvPortMalloc(sizeof(Msg))
 
-#define MSG_FREE(p)		pvPortMalloc((void*)p)
+#define MSG_FREE(p)		vPortFree((void*)p)
 
 #define MSG_SEND(p)		xQueueSendToBack(&main_queue, (void*)p, portMAX_DELAY)
 #define MSG_SEND_I(p)	xQueueSendToBackFromISR(&main_queue, (void*)p, pdFALSE)

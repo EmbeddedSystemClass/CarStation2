@@ -79,6 +79,7 @@ typedef void * xComPortHandle;
 #define USARTsh_RxPin             GPIO_Pin_10
 #define USARTsh_TxPin             GPIO_Pin_9
 
+// 蓝牙模块使能控制引脚
 #define USARTsh_BT_GPIO           GPIOA
 #define USARTsh_BT_GPIO_CLK       RCC_APB2Periph_GPIOA
 #define USARTsh_BT_Pin            GPIO_Pin_8

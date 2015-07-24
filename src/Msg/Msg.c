@@ -10,12 +10,12 @@
 
 // 定义队列大小
 QueueHandle_t		main_queue;
-const unsigned portBASE_TYPE uxQueueSize = 20;
+const unsigned portBASE_TYPE uxMainQueueSize = 20;
 
 // 初始化消息队列
 void InitMsgQueue(void)
 {
-	main_queue = xQueueCreate(uxQueueSize, sizeof(Msg*));
+	main_queue = xQueueCreate(uxMainQueueSize, sizeof(Msg*));
 }
 
 

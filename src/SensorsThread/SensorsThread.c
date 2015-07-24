@@ -8,18 +8,14 @@
 
 #include "SensorsThread.h"
 
-#include "I2C/myi2c.h"
+#include "I2C/i2cdevices.h"
 #include "power/power.h"
-
-
-static WORKING_AREA(sensorsThread, 256);
-static msg_t sensors_Thread(void *arg);
 
 BaseType_t InitSensorsThread(void)
 {
 	BaseType_t		bRet;
 
-	bRet = FALSE;
+	bRet = pdFALSE;
 
 	// 创建传感器测量线程
 	chThdCreateStatic(sensorsThread, sizeof(sensorsThread), NORMALPRIO, sensors_Thread, NULL);
@@ -32,10 +28,10 @@ static msg_t sensors_Thread(void *arg)
 	(void)arg;
 
 	// 循环定时读取各个传感器，然后将变化的数据Post到主线程
-	while (TRUE)
+	while (1)
 	{
 		// Read every 1 seconds
-		chThdSleepMilliseconds(1000);
+		vTaskDelay(pdMS_TO_TICKS(1000));
 
 		// Power(12v/5v/battery/door status)
 		GetPowerStatus();

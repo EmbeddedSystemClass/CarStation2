@@ -9,6 +9,8 @@
 #define GPS_H_
 
 #include <FreeRTOS.h>
+#include "stm32f10x.h"
+#include "..\shell\FreeRTOS_CLI.h"
 
 BaseType_t InitGPS(void);
 void EnableGPS(BaseType_t bEnable);

@@ -104,10 +104,11 @@ static void LEDTask( void * pvParameters)
 }
 
 // Main task
+#define MAIN_TASK_STACK_SIZE		1024
 static void MainTask( void * pvParameters)
 {
 	// Test LED task
-	xTaskCreate( LEDTask, "Echo", configMINIMAL_STACK_SIZE, NULL, 1, NULL );
+	xTaskCreate( LEDTask, "Echo", MAIN_TASK_STACK_SIZE, NULL, 1, NULL );
 
 	// 初始化SD Card和mount文件系统
 	//InitSDCard();
