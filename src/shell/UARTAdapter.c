@@ -257,7 +257,8 @@ void UART_write(USART_TypeDef* USARTx, volatile char *s){
 
 signed portBASE_TYPE xSerialPutChar( xComPortHandle pxPort, signed char cOutChar, TickType_t xBlockTime )
 {
-signed portBASE_TYPE xReturn;
+	( void )pxPort;
+	signed portBASE_TYPE xReturn;
 
 	if( xQueueSend( xCharsForTx, &cOutChar, xBlockTime ) == pdPASS )
 	{

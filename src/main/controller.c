@@ -29,24 +29,18 @@ static int16_t		s_Humidity_out		= INVALID_HUMIDITY;
 static uint16_t		s_Light				= 0;
 
 // 电源状态
-struct	Msg_Power
+typedef struct
 {
 	int16_t		CarBattery;
-	int16_t		LionBattery;
 
 	int16_t		IsPoweron : 1;
 	int16_t		IsCarStart : 1;
-	int16_t		IsCharging : 1;
-	int16_t		IsFull : 1;
 
-} PowerVoltage;
+} xPowerVoltage;
 
-static 	PowerVoltage	s_Power = {INVALID_VOLTAGE, INVALID_VOLTAGE, 0, 0, 0, 0};
+static 	xPowerVoltage		s_Power = {INVALID_VOLTAGE, 0, 0};
 
-//static int16_t		s_Battery			= INVALID_VOLTAGE;
 //static int16_t		s_CarBat			= INVALID_VOLTAGE;
-//static BaseType_t		s_IsFull			= false;
-//static BaseType_t		s_IsCharging		= false;
 //static BaseType_t		s_IsPowerOn			= false;
 //static BaseType_t		s_IsCarStart		= false;
 
@@ -162,13 +156,13 @@ void MsgPower(Msg* msg)
 
 	if (msg->Param.PowerVoltage.IsPoweron != s_Power.IsPoweron)
 	{
-		s_Power.IsPowerOn = msg->Param.PowerVoltage.IsPoweron;
+		s_Power.IsPoweron = msg->Param.PowerVoltage.IsPoweron;
 
 		uimsg = MSG_NEW;
 		if (uimsg)
 		{
 			uimsg->Id = MSG_UI_ONOFF;
-			uimsg->Param.DisplayOnOff.IsOn = s_Power.IsPowerOn;
+			uimsg->Param.DisplayOnOff.IsOn = s_Power.IsPoweron;
 
 			err = GUI_MSG_SEND(uimsg);
 			if (err != pdPASS)

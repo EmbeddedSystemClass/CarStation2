@@ -227,7 +227,7 @@ BaseType_t GPSCommandChecksum(int nLength)
 
 	// 判断计算结果
 	p++;		// 移动到最后两个字符前
-	chsnprintf(Checksum, 3, "%02X", c);
+	sprintf(Checksum, 3, "%02X", c);
 
 	if ((Checksum[0] == *p++) && (Checksum[1] == *p))
 	{

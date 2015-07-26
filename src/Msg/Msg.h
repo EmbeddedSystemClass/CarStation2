@@ -10,6 +10,7 @@
 #define MSG_H_
 
 #include <FreeRTOS.h>
+#include <queue.h>
 
 // 消息ID，主处理线程和GUI处理线程，以及其他处理线程，共用一个消息枚举，消息内存也一起合并定义
 typedef enum
@@ -38,13 +39,9 @@ typedef union
 	struct	Msg_Power
 	{
 		int16_t		CarBattery;
-		int16_t		LionBattery;
 
 		int16_t		IsPoweron : 1;
 		int16_t		IsCarStart : 1;
-		int16_t		IsCharging : 1;
-		int16_t		IsFull : 1;
-
 	}	PowerVoltage;
 
 	struct Msg_DoorOpen

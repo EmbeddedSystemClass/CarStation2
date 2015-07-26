@@ -8,7 +8,6 @@
  */
 
 #include "block.h"
-#include <chprintf.h>
 
 static void test_load(const struSize* size, void* param)
 {
@@ -26,7 +25,7 @@ static void test_msg(Msg* msg)
 	if (msg->Id == MSG_UI_LIGHT)
 	{
 		gdispFillArea(0, 0, 128, 9, 0);
-		chsnprintf(temp, 15, "Light:%d",
+		sprintf(temp, 15, "Light:%d",
 					msg->Param.Light.Light);
 
 		font = gdispOpenFont("UI2");

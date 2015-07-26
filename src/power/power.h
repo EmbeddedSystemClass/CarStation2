@@ -13,7 +13,6 @@
 #include "..\shell\FreeRTOS_CLI.h"
 
 BaseType_t InitPower(void);
-void EnableCharge(BaseType_t bEnable);
 void GetPowerStatus(void);
 
 extern const CLI_Command_Definition_t cmd_def_power;

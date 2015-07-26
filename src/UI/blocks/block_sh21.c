@@ -6,7 +6,6 @@
  */
 
 #include "block.h"
-#include <chprintf.h>
 
 static struSize		s_Pos;
 
@@ -30,7 +29,7 @@ static void sh21_msg(Msg* msg)
 	{
 		gdispFillArea(0, 42, 128, 10, 0);
 
-		chsnprintf(temp, 12, "%d %d",
+		sprintf(temp, 12, "%d %d",
 					msg->Param.SHT21Data.Temperature / 10,
 					msg->Param.SHT21Data.Humidity / 10);
 
@@ -42,7 +41,7 @@ static void sh21_msg(Msg* msg)
 	{
 		gdispFillArea(0, 52, 128, 10, 0);
 
-		chsnprintf(temp, 12, "%d %d",
+		sprintf(temp, 12, "%d %d",
 					msg->Param.SHT21Data.Temperature / 10,
 					msg->Param.SHT21Data.Humidity / 10);
 
