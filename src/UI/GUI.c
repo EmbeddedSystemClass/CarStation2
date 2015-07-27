@@ -97,7 +97,7 @@ void test(void)
 	gdispSetContrast(100);
 	gdispSetContrast(50);
 
-	//chThdSleepMilliseconds(3000);
+	vTaskDelay(pdMS_TO_TICKS(3000));
 
 	// test consle
 	font = gdispOpenFont("UI2");

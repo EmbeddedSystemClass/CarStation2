@@ -11,21 +11,12 @@
 #include "I2C/i2cdevices.h"
 #include "power/power.h"
 
-BaseType_t InitSensorsThread(void)
+#include <task.h>
+
+#define SENSORS_TASK_STACK_SIZE		256
+static void SensorsTask( void * pvParameters)
 {
-	BaseType_t		bRet;
-
-	bRet = pdFALSE;
-
-	// 创建传感器测量线程
-	chThdCreateStatic(sensorsThread, sizeof(sensorsThread), NORMALPRIO, sensors_Thread, NULL);
-
-	return bRet;
-}
-
-static msg_t sensors_Thread(void *arg)
-{
-	(void)arg;
+	(void)pvParameters;
 
 	// 循环定时读取各个传感器，然后将变化的数据Post到主线程
 	while (1)
@@ -44,7 +35,17 @@ static msg_t sensors_Thread(void *arg)
 
 		//
 	}
+}
 
-	return 0;
+BaseType_t InitSensorsThread(void)
+{
+	BaseType_t		bRet;
+
+	bRet = pdFALSE;
+
+	// 创建传感器测量线程
+	xTaskCreate( SensorsTask, "Sensors", SENSORS_TASK_STACK_SIZE, NULL, 1, NULL );
+
+	return bRet;
 }
 

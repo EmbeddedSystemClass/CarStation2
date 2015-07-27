@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include "stm32f10x.h"
 #include "FreeRTOS.h"
+#include "..\shell\FreeRTOS_CLI.h"
 
 #define I2C_SPEED               100000
 #define I2C_SLAVE_ADDRESS7      0xA0

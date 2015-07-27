@@ -11,6 +11,8 @@
 #include <stdio.h>
 #include "Msg/Msg.h"
 
+#include "semphr.h"
+
 // GPS serial config(9600bps)
 #define USARTgps                  USART2
 #define USARTgps_GPIO             GPIOA
@@ -29,7 +31,7 @@ static char		gpsBuffer[MAX_GPS_BUFFER];		// 存放接收到的缓冲数据
 static char*	gpsBufferPointer;				// 当前缓冲器的空白位置指针
 
 // 触发命令处理的二值信号量
-static xSemaphoreHandle		s_xProcessEvent;
+static SemaphoreHandle_t		s_xProcessEvent;
 
 // GPS原始数据（用字符串存放，不需要处理就可以判断是否变化，有变化后在进行字符串转数字，再发送到处理线程上）
 // 所有数据都要判断各自的有效性
@@ -78,7 +80,7 @@ void USART2_IRQHandler(void)
 		// 判断是否是\n，如果是就触发处理线程进行一次命令分析
 		if (cChar == '\n')
 		{
-			xSemaphoreGiveFromISR(s_xProcessEvent);
+			xSemaphoreGiveFromISR(s_xProcessEvent, &xHigherPriorityTaskWoken);
 		}
 	}
 
@@ -118,7 +120,7 @@ static void GPSTask(void * pvParameters)
 		// TODO:
 
 		// 等待二值信号量触发后，做一次命令分析
-		xSemaphoreTake(s_xProcessEvent);
+		xSemaphoreTake(s_xProcessEvent, portMAX_DELAY);
 
 		gpsBufferPointer = gpsBuffer + nRead;
 		// 处理数据
@@ -227,7 +229,7 @@ BaseType_t GPSCommandChecksum(int nLength)
 
 	// 判断计算结果
 	p++;		// 移动到最后两个字符前
-	sprintf(Checksum, 3, "%02X", c);
+	snprintf(Checksum, 3, "%02X", c);
 
 	if ((Checksum[0] == *p++) && (Checksum[1] == *p))
 	{
@@ -348,7 +350,7 @@ static BaseType_t cmd_gpsenable( char *pcWriteBuffer, size_t xWriteBufferLen, co
 
 	pcParameter = FreeRTOS_CLIGetParameter(pcCommandString, 2, &xParameterStringLength);
 	configASSERT( pcParameter );
-	bOn = (pcParameter == '1') ? pdTRUE : pdFALSE;
+	bOn = (*pcParameter == '1') ? pdTRUE : pdFALSE;
 
 	if (pcParameter[0] == '1')
 	{

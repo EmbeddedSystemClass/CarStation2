@@ -7,7 +7,7 @@
 
 #include "i2cdevices.h"
 
-void InitI2C()
+BaseType_t InitI2C()
 {
 	GPIO_InitTypeDef GPIO_InitStructure;
 	I2C_InitTypeDef I2C_InitStructure;
@@ -44,6 +44,8 @@ void InitI2C()
 	I2C_Cmd(sEE_I2C, ENABLE);
 	/* Apply sEE_I2C configuration after enabling it */
 	I2C_Init(sEE_I2C, &I2C_InitStructure);
+
+	return pdTRUE;
 }
 
 #define Timed(x) Timeout = 0xFFFF; while (x) { if (Timeout-- == 0) goto errReturn;}

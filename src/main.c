@@ -108,7 +108,7 @@ static void LEDTask( void * pvParameters)
 static void MainTask( void * pvParameters)
 {
 	// Test LED task
-	xTaskCreate( LEDTask, "Echo", MAIN_TASK_STACK_SIZE, NULL, 1, NULL );
+	xTaskCreate( LEDTask, "Echo", configMINIMAL_STACK_SIZE, NULL, 1, NULL );
 
 	// 初始化SD Card和mount文件系统
 	//InitSDCard();
@@ -149,7 +149,7 @@ main(int argc, char* argv[])
 	// At this stage the system clock should have already been configured
 	// at high speed.
 	// Main task
-	xTaskCreate( MainTask, "Main", configMINIMAL_STACK_SIZE, NULL, 1, NULL );
+	xTaskCreate( MainTask, "Main", MAIN_TASK_STACK_SIZE, NULL, 1, NULL );
 
 	// start FreeRTOS
 	vTaskStartScheduler();
