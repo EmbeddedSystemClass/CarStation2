@@ -8,6 +8,7 @@
 #ifndef BLOCK_H_
 #define BLOCK_H_
 
+#include <stdio.h>
 #include "../GUI.h"
 
 typedef struct

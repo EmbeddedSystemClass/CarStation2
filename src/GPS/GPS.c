@@ -12,6 +12,7 @@
 #include "Msg/Msg.h"
 
 #include "semphr.h"
+#include "task.h"
 
 // GPS serial config(9600bps)
 #define USARTgps                  USART2

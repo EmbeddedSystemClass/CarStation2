@@ -14,7 +14,7 @@
 #include "queue.h"
 #include "stm32f10x.h"
 
-#include "SDCard/SDCard.h"
+// #include "SDCard/SDCard.h"
 #include "GPS/GPS.h"
 #include "shell/car_sh.h"
 #include "I2C/i2cdevices.h"

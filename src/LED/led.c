@@ -25,7 +25,7 @@ static BaseType_t cmd_led( char *pcWriteBuffer, size_t xWriteBufferLen, const ch
 
 	pcParameter = FreeRTOS_CLIGetParameter(pcCommandString, 2, &xParameterStringLength);
 	configASSERT( pcParameter );
-	bOn = (pcParameter == '1') ? pdTRUE : pdFALSE;
+	bOn = (*pcParameter == '1') ? pdTRUE : pdFALSE;
 
 	pcParameter = FreeRTOS_CLIGetParameter(pcCommandString, 1, &xParameterStringLength);
 	configASSERT( pcParameter );

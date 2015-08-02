@@ -7,6 +7,7 @@
 
 #include "i2cdevices.h"
 #include "Msg/Msg.h"
+#include "task.h"
 
 // I2C设备
 #define SHT21_OUT_I2C		I2C1

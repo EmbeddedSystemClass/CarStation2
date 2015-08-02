@@ -25,7 +25,7 @@ static void test_msg(Msg* msg)
 	if (msg->Id == MSG_UI_LIGHT)
 	{
 		gdispFillArea(0, 0, 128, 9, 0);
-		sprintf(temp, 15, "Light:%d",
+		snprintf(temp, 15, "Light:%d",
 					msg->Param.Light.Light);
 
 		font = gdispOpenFont("UI2");

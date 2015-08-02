@@ -9,6 +9,7 @@
 #include <Msg/Msg.h>
 #include <time.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 // RTC Interrupt
 void RTC_IRQHandler(void)

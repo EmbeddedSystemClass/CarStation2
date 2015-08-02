@@ -33,7 +33,7 @@ static void clock_msg(Msg* msg)
 		// Clear
 		gdispFillArea(0, 10, 128, 22, 0);
 
-		sprintf(ctime, 6, "%02d:%02d", msg->Param.UIClock.Hour, msg->Param.UIClock.Minute);
+		snprintf(ctime, 6, "%02d:%02d", msg->Param.UIClock.Hour, msg->Param.UIClock.Minute);
 		font = gdispOpenFont("LargeNumbers");
 		gdispDrawString(0, 10, ctime, font, 1);
 		gdispCloseFont(font);
