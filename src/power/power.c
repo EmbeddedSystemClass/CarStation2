@@ -12,8 +12,9 @@
 #include <string.h>
 #include <stdio.h>
 
+#define ADC1_DR_Address    ((uint32_t)0x4001244C)
 
-#define ADC_GRP1_NUM_CHANNELS   3
+#define ADC_GRP1_NUM_CHANNELS   2
 #define ADC_GRP1_BUF_DEPTH      8
 
 static uint16_t		voltages[ADC_GRP1_NUM_CHANNELS * ADC_GRP1_BUF_DEPTH];
@@ -35,12 +36,82 @@ void PowerCheck(int16_t carBat, int16_t	carAcc);
 
 BaseType_t InitPower(void)
 {
-	// 初始化各个控制引脚
+	GPIO_InitTypeDef 	GPIO_InitStructure;
+	ADC_InitTypeDef 	ADC_InitStructure;
+	DMA_InitTypeDef   	DMA_InitStructure;
 
-	/*
-	 *  Activates the ADC1 driver and the temperature sensor.
-	 */
-	//adcStart(&ADCD1, NULL);
+	// 初始化ADC时钟
+	RCC_ADCCLKConfig(RCC_PCLK2_Div2);
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_ADC1 | RCC_APB2Periph_GPIOC, ENABLE);
+
+	// 初始化各个控制引脚（PC0和PC2，因为安全问题，后续不再使用内部的锂电池，所以不需要PC1）
+	// PC0 - ADC1-10 12v汽车电池（直通）
+	// PC1 - ADC1-11 4.7v锂电池
+	// PC2 - ADC1-12 12v电门（汽车钥匙在ON位置后才有电）
+	// PC3 - 门灯信号（开门 低压？）（暂时使用输入，如果信号不能为低电平，则需要使用AD转换方式检测）
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;
+	GPIO_Init(GPIOC, &GPIO_InitStructure);
+
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_2;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;
+	GPIO_Init(GPIOC, &GPIO_InitStructure);
+
+	// 开门信号，低电平表示开门（使用中断方式）
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
+	GPIO_Init(GPIOC, &GPIO_InitStructure);
+
+	// 初始化DMA
+	/* DMA1 channel1 configuration ----------------------------------------------*/
+	DMA_DeInit(DMA1_Channel1);
+	DMA_InitStructure.DMA_PeripheralBaseAddr = ADC1_DR_Address;
+	DMA_InitStructure.DMA_MemoryBaseAddr = (uint32_t) voltages;
+	DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralSRC;
+	DMA_InitStructure.DMA_BufferSize = sizeof(voltages);
+	DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
+	DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
+	DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
+	DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
+	DMA_InitStructure.DMA_Mode = DMA_Mode_Normal; //DMA_Mode_Circular;
+	DMA_InitStructure.DMA_Priority = DMA_Priority_High;
+	DMA_InitStructure.DMA_M2M = DMA_M2M_Disable;
+	DMA_Init(DMA1_Channel1, &DMA_InitStructure);
+
+	// 初始化ADC1
+	/* ADC1 configuration ------------------------------------------------------*/
+	ADC_InitStructure.ADC_Mode = ADC_Mode_Independent;
+	ADC_InitStructure.ADC_ScanConvMode = ENABLE;
+	ADC_InitStructure.ADC_ContinuousConvMode = DISABLE;
+	ADC_InitStructure.ADC_ExternalTrigConv = ADC_ExternalTrigConv_None;
+	ADC_InitStructure.ADC_DataAlign = ADC_DataAlign_Right;
+	ADC_InitStructure.ADC_NbrOfChannel = 2;
+	ADC_Init(ADC1, &ADC_InitStructure);
+
+	/* ADC1 regular channel0 & 12 configuration */
+	ADC_RegularChannelConfig(ADC1, ADC_Channel_10, 1, ADC_SampleTime_7Cycles5);
+	ADC_RegularChannelConfig(ADC1, ADC_Channel_12, 2, ADC_SampleTime_7Cycles5);
+
+	/* Enable ADC1 DMA */
+	ADC_DMACmd(ADC1, ENABLE);
+
+	/* Enable ADC1 */
+	ADC_Cmd(ADC1, ENABLE);
+
+	/* Enable ADC1 reset calibration register */
+	ADC_ResetCalibration(ADC1);
+	/* Check the end of ADC1 reset calibration register */
+	while (ADC_GetResetCalibrationStatus(ADC1))
+		;
+
+	/* Start ADC1 calibration */
+	ADC_StartCalibration(ADC1);
+	/* Check the end of ADC1 calibration */
+	while (ADC_GetCalibrationStatus(ADC1))
+		;
+
+	/* Start ADC1 Software Conversion */
+	//ADC_SoftwareStartConvCmd(ADC1, ENABLE);
 
 	return pdTRUE;
 }
@@ -87,7 +158,7 @@ void GetPowerStatus(void)
 			Vcar12bat += voltages[i * ADC_GRP1_NUM_CHANNELS + 0];
 
 			// 汽车电门输出（主要用于判断是否开启电源）
-			Vcar12acc += voltages[i * ADC_GRP1_NUM_CHANNELS + 2];
+			Vcar12acc += voltages[i * ADC_GRP1_NUM_CHANNELS + 1];
 		}
 		Vcar12bat	/= ADC_GRP1_BUF_DEPTH;
 		Vcar12acc	/= ADC_GRP1_BUF_DEPTH;
@@ -167,30 +238,6 @@ static BaseType_t cmd_power( char *pcWriteBuffer, size_t xWriteBufferLen, const 
 
 	return pdFALSE;
 }
-
-//void cmd_chargeenable(BaseSequentialStream *chp, int argc, char *argv[])
-//{
-//	// 开启或关闭充电
-//	if (argc == 1)
-//	{
-//		// 有一个参数
-//		if (*argv[0] == '1')
-//		{
-//			EnableCharge(true);
-//			chprintf(chp, "Enable charge.\r\n");
-//			return;
-//		}
-//		else if (*argv[0] == '0')
-//		{
-//			EnableCharge(false);
-//			chprintf(chp, "Disable charge.\r\n");
-//			return;
-//		}
-//	}
-//
-//	// usage
-//	chprintf(chp, "chargeenable 1|0\r\n");
-//}
 
 const CLI_Command_Definition_t cmd_def_power =
 {
