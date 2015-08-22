@@ -12,7 +12,23 @@
 // 初始化所有LED引脚
 BaseType_t InitLED( void )
 {
-	BaseType_t		ret = pdTRUE;
+	BaseType_t			ret = pdTRUE;
+	GPIO_InitTypeDef 	GPIO_InitStructure;
+
+	// Enable GPIO Peripheral clock
+	RCC_APB2PeriphClockCmd(LED_INTERNAL_GPIO_CLK | LED_RED_GPIO_CLK | LED_GREEN_GPIO_CLK, ENABLE);
+
+	// Configure pin in output push/pull mode
+	GPIO_InitStructure.GPIO_Pin = LED_INTERNAL_Pin;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+	GPIO_Init(LED_INTERNAL_GPIO, &GPIO_InitStructure);
+
+	GPIO_InitStructure.GPIO_Pin = LED_RED_Pin;
+	GPIO_Init(LED_RED_GPIO, &GPIO_InitStructure);
+
+	GPIO_InitStructure.GPIO_Pin = LED_GREEN_Pin;
+	GPIO_Init(LED_GREEN_GPIO, &GPIO_InitStructure);
 
 	return ret;
 }

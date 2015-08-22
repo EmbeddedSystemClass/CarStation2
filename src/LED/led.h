@@ -37,6 +37,8 @@
 #define GREEN_LED_ON		GPIO_SetBits(LED_GREEN_GPIO, LED_GREEN_Pin)
 //#define GREEN_LED_TOGGLE	palTogglePad(GPIO_LED_GREEN_PORT, GPIO_LED_GREEN_BIT)
 
+BaseType_t InitLED( void );
+
 extern const CLI_Command_Definition_t cmd_def_led;
 
 #endif /* LED_H_ */
