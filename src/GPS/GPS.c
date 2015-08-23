@@ -28,8 +28,12 @@
 #define USARTgps_GPS_Pin          GPIO_Pin_1
 
 #define			MAX_GPS_BUFFER		128
-static char		gpsBuffer[MAX_GPS_BUFFER];		// 存放接收到的缓冲数据
+static char	gpsBuffer[MAX_GPS_BUFFER];		// 存放接收到的缓冲数据
 static char*	gpsBufferPointer;				// 当前缓冲器的空白位置指针
+
+static char	gpsCommand[MAX_GPS_BUFFER];		// 处理缓冲区，在串口接收到回车后，将接收缓冲区的字符串拷贝到这里
+static int		nGPSCommandLength;				// 处理缓冲区长度。备注：0表示处理完成；不为0表示还有数据等待处理
+												// 此时如果接收到回车，就应该丢弃接收的数据，不能覆盖处理。
 
 // 触发命令处理的二值信号量
 static SemaphoreHandle_t		s_xProcessEvent;
@@ -76,12 +80,32 @@ void USART2_IRQHandler(void)
 		cChar = USART_ReceiveData(USART2);
 
 		// 接收到的字符写入到缓冲区中
+		if (gpsBufferPointer - gpsBuffer >= MAX_GPS_BUFFER)
+		{
+			// 缓冲区溢出，因为一直没有收到回车。超过MAX_GPS_BUFFER长度
+			gpsBufferPointer = gpsBuffer;
+		}
+
 		*gpsBufferPointer = cChar;
 
 		// 判断是否是\n，如果是就触发处理线程进行一次命令分析
 		if (cChar == '\n')
 		{
-			xSemaphoreGiveFromISR(s_xProcessEvent, &xHigherPriorityTaskWoken);
+			// 拷贝接收缓冲区的数据到处理缓冲区
+			if (nGPSCommandLength == 0)
+			{
+				nGPSCommandLength = gpsBufferPointer - gpsBuffer;
+				memcpy(gpsCommand, gpsBuffer, nGPSCommandLength);
+
+				xSemaphoreGiveFromISR(s_xProcessEvent, &xHigherPriorityTaskWoken);
+			}
+			else
+			{
+				// 处理缓冲区还有数据（异常）
+				// 强制复位指针，丢弃接收缓冲区的数据
+			}
+
+			gpsBufferPointer = gpsBuffer;		// 复位接收数据的指针
 		}
 	}
 
@@ -110,8 +134,6 @@ void EnableGPS(BaseType_t bEnable)
 #define GPS_TASK_STACK_SIZE			128
 static void GPSTask(void * pvParameters)
 {
-	int16_t nRead;
-
 	// test：开启GPS
 	//EnableGPS(true);
 
@@ -123,13 +145,10 @@ static void GPSTask(void * pvParameters)
 		// 等待二值信号量触发后，做一次命令分析
 		xSemaphoreTake(s_xProcessEvent, portMAX_DELAY);
 
-		gpsBufferPointer = gpsBuffer + nRead;
 		// 处理数据
 
 		// 分析缓冲器（多次分析，可能一个缓冲器内放入两个或以上的GPS指令）
 		getGPSCommand();
-
-		// chThdSleepMilliseconds(500);
 	}
 }
 
@@ -221,7 +240,7 @@ BaseType_t GPSCommandChecksum(int nLength)
 		return pdFALSE;
 	}
 
-	p = gpsBuffer + 1;	// 跳过$
+	p = gpsCommand + 1;	// 跳过$
 	while (nLength)
 	{
 		c ^= *p++;
@@ -257,87 +276,22 @@ BaseType_t processGPSCommand(int nLength)
 	return pdFALSE;
 }
 
-// 清除缓冲区前面无用或已经使用的数据
-void MoveData(char* pStart)
-{
-	int		nDataLength = gpsBufferPointer - pStart;
-	memmove(gpsBuffer, pStart, nDataLength);
-	gpsBufferPointer = gpsBuffer + nDataLength;
-}
-
-// 查找尾部，返回从头到尾的总字符串长度（包含$和回车换行）
-int SearchEOF(void)
-{
-	char* p;
-	for (p = gpsBuffer; p < gpsBufferPointer; p++)
-	{
-		if (*p == '\n')
-		{
-			return p - gpsBuffer + 1;
-		}
-	}
-
-	return 0;
-}
 // 从缓冲区中分离命令
 static BaseType_t getGPSCommand(void)
 {
 	BaseType_t		bHaveCommand = pdFALSE;
 
-	while (pdFALSE)
+	// 分析命令的条件
+	// 1、至少11个字符，头部6个，尾部3个字符的校验，2字符的回车换行
+	// 2、头部为$
+	if ((nGPSCommandLength > 11) && (gpsCommand[0] == '$'))
 	{
-		if (gpsBufferPointer - gpsBuffer < 11)
-		{
-			// 没有足够数据（至少11个字符，头部6个，尾部3个字符的校验，2字符的回车换行）
-			break;
-		}
-
-		//判断头部是否是$
-		if ( gpsBuffer[0] == '$' )
-		{
-			// 查找尾部
-			int nCommandLength;
-
-			nCommandLength = SearchEOF();
-
-			if (nCommandLength == 0)
-			{
-				break;
-			}
-			else
-			{
-				// 处理命令
-				processGPSCommand(nCommandLength);
-
-				bHaveCommand = pdTRUE;
-
-				// 可能还有另一个命令，需要继续向下搜索
-				MoveData(gpsBuffer + nCommandLength);
-				continue;
-			}
-		}
-		else
-		{
-			// 找缓冲区中的$然后移动
-			char*		p;
-
-			for (p = gpsBuffer; p < gpsBufferPointer; p++)
-			{
-				if (*p == '$')
-				{
-					MoveData(p);
-					break;
-				}
-			}
-
-			if (*p != '$')
-			{
-				// 没有找到$在缓冲区中，缓冲的数据全部无效
-				gpsBufferPointer = gpsBuffer;
-				break;
-			}
-		}
+		// 处理数据
+		bHaveCommand = processGPSCommand(nGPSCommandLength);
 	}
+
+	// 处理完成
+	nGPSCommandLength = 0;
 
 	return bHaveCommand;
 }
