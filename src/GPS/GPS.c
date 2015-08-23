@@ -296,17 +296,17 @@ static BaseType_t getGPSCommand(void)
 	return bHaveCommand;
 }
 
+
+// 下面是shell命令函数
+
 static BaseType_t cmd_gpsenable( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString )
 {
 	// 开启或关闭GPS模块
-	BaseType_t		bOn;
 	const char *	pcParameter;
 	BaseType_t 		xParameterStringLength;
 
 	pcParameter = FreeRTOS_CLIGetParameter(pcCommandString, 2, &xParameterStringLength);
 	configASSERT( pcParameter );
-	bOn = (*pcParameter == '1') ? pdTRUE : pdFALSE;
-
 	if (pcParameter[0] == '1')
 	{
 		EnableGPS(pdTRUE);
